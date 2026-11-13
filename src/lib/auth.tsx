@@ -3,8 +3,13 @@ import { createClient, type SupabaseClient, type User } from '@supabase/supabase
 import { Capacitor } from '@capacitor/core';
 
 const previewKey = 'vyavasya-local-preview';
-const projectUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
-const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim();
+const projectUrl = (import.meta.env.VITE_SUPABASE_URL
+  || import.meta.env.VITE_SUPABASE_SUPABASE_URL
+  || '').trim();
+const publishableKey = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+  || import.meta.env.VITE_SUPABASE_SUPABASE_PUBLISHABLE_KEY
+  || import.meta.env.VITE_SUPABASE_SUPABASE_ANON_KEY
+  || '').trim();
 const supabaseClient: SupabaseClient | null = projectUrl && publishableKey
   ? createClient(projectUrl, publishableKey)
   : null;
