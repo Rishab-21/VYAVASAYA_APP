@@ -1,0 +1,169 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --ink: #1f3029;
+    --muted: #849089;
+    --line: #e8ebe5;
+    --canvas: #f5f6f2;
+    --green: #1b5c45;
+    --green2: #2d8060;
+    --mint: #e8f3ed;
+  }
+  * {
+    box-sizing: border-box;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    margin: 0;
+    background: #f5f6f2;
+    color: #1f3029;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, h4 {
+    font-family: 'Manrope', 'DM Sans', sans-serif;
+    letter-spacing: -0.02em;
+  }
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+  ::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #d4dcd5;
+    border-radius: 9px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  input, select, textarea {
+    font-family: inherit;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-[9px] bg-[#1b5c45] px-4 py-2.5 text-xs font-bold text-white shadow-[0_4px_10px_rgba(27,92,69,0.13)] transition hover:bg-[#164b39];
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-[9px] border border-[#e8ebe5] bg-white px-3.5 py-2.5 text-xs font-semibold text-[#55635b] transition hover:bg-[#f7f8f5];
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-[9px] border border-[#e8ebe5] bg-white px-3 py-2 text-[11px] font-semibold text-[#55635b] transition hover:bg-[#f7f8f5];
+  }
+  .card {
+    @apply rounded-[13px] border border-[#e8ebe5] bg-white shadow-[0_8px_28px_rgba(32,60,43,0.04)];
+  }
+  .field-label {
+    @apply text-[10px] font-bold uppercase tracking-wide text-[#68756c];
+  }
+  .field-input {
+    @apply h-10 w-full rounded-lg border border-[#e8ebe5] bg-white px-3 text-[13px] text-[#1f3029] outline-none transition placeholder:text-[#b6beb6] focus:border-[#81b39b] focus:shadow-[0_0_0_3px_rgba(233,244,236,1)];
+  }
+  .field-select {
+    @apply h-10 w-full rounded-lg border border-[#e8ebe5] bg-white px-3 text-[13px] text-[#1f3029] outline-none transition focus:border-[#81b39b] focus:shadow-[0_0_0_3px_rgba(233,244,236,1)];
+  }
+  .badge {
+    @apply inline-flex items-center rounded-full px-2 py-1 text-[10px] font-bold;
+  }
+  .badge-green {
+    @apply bg-[#edf5ef] text-[#468261];
+  }
+  .badge-amber {
+    @apply bg-[#fff3e7] text-[#c28334];
+  }
+  .badge-red {
+    @apply bg-[#fdeeec] text-[#c96655];
+  }
+  .badge-neutral {
+    @apply bg-[#f1f3ef] text-[#8b968e];
+  }
+}
+
+@keyframes vyfade {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade {
+  animation: vyfade 0.28s ease-out;
+}
+@keyframes vymodal {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-modal {
+  animation: vymodal 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes vytoast {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-toast {
+  animation: vytoast 0.2s ease-out;
+}
+@keyframes vychart {
+  from { stroke-dashoffset: 1000; }
+  to { stroke-dashoffset: 0; }
+}
+.animate-chartline {
+  stroke-dasharray: 1000;
+  animation: vychart 1.1s ease-out forwards;
+}
+@keyframes vy-intro-mark {
+  0% { opacity: 0; transform: translateY(10px) scale(0.86); }
+  68% { opacity: 1; transform: translateY(-2px) scale(1.025); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes vy-intro-exit {
+  0%, 73% { opacity: 1; }
+  100% { opacity: 0; visibility: hidden; }
+}
+.brand-intro {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #fbfcf9;
+  pointer-events: none;
+  animation: vy-intro-exit 1.15s ease-out forwards;
+}
+.brand-intro-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translateY(-12px);
+}
+.brand-intro-full-logo {
+  width: min(260px, 72vw);
+  height: auto;
+  object-fit: contain;
+  animation: vy-intro-mark 0.56s cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .brand-intro { display: none; }
+}
+@keyframes vyscale {
+  from { transform: scaleY(0); opacity: 0; }
+  to { transform: scaleY(1); opacity: 1; }
+}
+
+@media print {
+  body * { visibility: hidden; }
+  .print-area, .print-area * { visibility: visible; }
+  .print-area { position: absolute; left: 0; top: 0; width: 100%; }
+}
