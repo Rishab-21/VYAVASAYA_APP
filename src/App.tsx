@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import { StoreProvider } from '@/lib/store';
 import { Sidebar } from '@/components/Sidebar';
 import { Topbar } from '@/components/Topbar';
@@ -144,7 +145,12 @@ function AppContent() {
 }
 
 function App() {
-  return <AuthProvider><AppContent /></AuthProvider>;
+  return (
+    <>
+      <AuthProvider><AppContent /></AuthProvider>
+      <Analytics />
+    </>
+  );
 }
 
 export default App;
