@@ -66,9 +66,10 @@ export function PurchaseModal({ open, onClose }: { open: boolean; onClose: () =>
             <div className="space-y-2">
               {lines.map((l, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <input className="field-input flex-1" placeholder="Item description" value={l.description} onChange={(e) => updateLine(i, 'description', e.target.value)} />
-                  <input className="field-input w-16 text-right" type="number" min="0" step="0.01" placeholder="Qty" value={l.quantity} onChange={(e) => updateLine(i, 'quantity', Number(e.target.value))} />
-                  <input className="field-input w-24 text-right" type="number" min="0" step="0.01" placeholder="Price" value={l.unitPrice} onChange={(e) => updateLine(i, 'unitPrice', Number(e.target.value))} />
+                  <input className="field-input flex-1" placeholder="Item description" list={`purchaseItems-${i}`} value={l.description} onChange={(e) => updateLine(i, 'description', e.target.value)} />
+                  <input className="field-input w-16 text-right" type="number" min="0" step="any" placeholder="Qty" aria-label={`Quantity${data.items.find((item) => item.name.trim().toLowerCase() === l.description.trim().toLowerCase()) ? ` in ${data.items.find((item) => item.name.trim().toLowerCase() === l.description.trim().toLowerCase())?.unit || 'pcs'}` : ''}`} value={l.quantity} onChange={(e) => updateLine(i, 'quantity', Number(e.target.value))} />
+                  <datalist id={`purchaseItems-${i}`}>{data.items.map((item) => <option key={item.id} value={item.name}>{item.name} · {item.unit || 'pcs'}</option>)}</datalist>
+                  <input className="field-input w-24 text-right" type="number" min="0" step="0.01" placeholder="Price" aria-label={`Price per ${data.items.find((item) => item.name.trim().toLowerCase() === l.description.trim().toLowerCase())?.unit || 'unit'}`} value={l.unitPrice} onChange={(e) => updateLine(i, 'unitPrice', Number(e.target.value))} />
                   <div className="w-20 text-right text-[11px] font-bold text-ink">{(l.quantity * l.unitPrice).toLocaleString('en-IN')}</div>
                   {lines.length > 1 && <button type="button" onClick={() => setLines(lines.filter((_, idx) => idx !== i))} className="grid h-8 w-8 place-items-center rounded-lg border border-line text-danger"><Trash2 size={13} /></button>}
                 </div>

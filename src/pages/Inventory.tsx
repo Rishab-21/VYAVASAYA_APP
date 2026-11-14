@@ -5,7 +5,7 @@ import { totals, lowStockItems } from '@/lib/calc';
 import { PageHead, SummaryBox, Panel, EmptyState, Badge } from '@/components/ui';
 import { ItemModal } from '@/components/ItemModal';
 import { Modal } from '@/components/Modal';
-import { Plus, Search, Upload, Download } from 'lucide-react';
+import { Plus, Search, Upload, Download, Pencil } from 'lucide-react';
 import type { Item } from '@/lib/types';
 
 interface PreviewRow { item: Partial<Item>; valid: boolean; error: string; }
@@ -13,6 +13,7 @@ interface PreviewRow { item: Partial<Item>; valid: boolean; error: string; }
 export function Inventory() {
   const { data, importItems, toast } = useStore();
   const [open, setOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [query, setQuery] = useState('');
   const [preview, setPreview] = useState<PreviewRow[] | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -23,8 +24,8 @@ export function Inventory() {
   const filtered = data.items.filter((x) => `${x.name} ${x.sku} ${x.category}`.toLowerCase().includes(query.toLowerCase()));
 
   const exportCSV = () => {
-    const rows: (string | number)[][] = [['Name', 'SKU', 'Category', 'Quantity', 'Reorder', 'Cost', 'Retail', 'Wholesale']];
-    for (const x of data.items) rows.push([x.name, x.sku, x.category, x.qty, x.reorder, x.cost, x.retail, x.wholesale]);
+    const rows: (string | number)[][] = [['Name', 'SKU', 'Category', 'Quantity', 'Reorder', 'Cost', 'Retail', 'Wholesale', 'Unit']];
+    for (const x of data.items) rows.push([x.name, x.sku, x.category, x.qty, x.reorder, x.cost, x.retail, x.wholesale, x.unit || 'pcs']);
     downloadFile(toCSV(rows), 'vyavasya-inventory.csv', 'text/csv');
     toast('Inventory exported');
   };
@@ -51,13 +52,14 @@ export function Inventory() {
           const cost = Number(get(['cost', 'unit cost', 'purchase price'], 3, row));
           const retail = Number(get(['retail', 'retail price', 'sale price'], 4, row));
           const sku = get(['sku', 'barcode', 'code'], 5, row);
+          const unit = get(['unit', 'units', 'uom'], 8, row) || 'pcs';
           let error = '';
           if (!name) error = 'Missing name';
           else if (!Number.isFinite(qty) || qty < 0) error = 'Invalid quantity';
           else if (!Number.isFinite(cost) || cost < 0) error = 'Invalid cost';
           else if (!Number.isFinite(retail) || retail < 0) error = 'Invalid retail price';
           else if (sku && data.items.some((x) => String(x.sku || '').toLowerCase() === sku.toLowerCase())) error = 'Duplicate SKU';
-          return { item: { name, sku, category, qty, cost, retail, reorder: 5, wholesale: 0, emoji: '📦' }, valid: !error, error };
+          return { item: { name, sku, category, qty, cost, retail, unit, reorder: 5, wholesale: 0, emoji: '📦' }, valid: !error, error };
         });
         setPreview(previewRows);
       } catch {
@@ -77,6 +79,7 @@ export function Inventory() {
       name: r.item.name!, sku: r.item.sku || '', category: r.item.category || 'Imported',
       qty: r.item.qty || 0, reorder: r.item.reorder || 5, cost: r.item.cost || 0,
       retail: r.item.retail || 0, wholesale: r.item.wholesale || 0, emoji: '📦',
+      unit: r.item.unit || 'pcs',
     }));
     importItems(items);
     toast(`${items.length} imported${preview.length - items.length ? `, ${preview.length - items.length} skipped` : ''}`);
@@ -125,26 +128,33 @@ export function Inventory() {
         <div className="overflow-x-auto">
           <table className="w-full border-collapse whitespace-nowrap">
             <thead>
-              <tr>{['Item / SKU', 'Category', 'In stock', 'Reorder at', 'Cost', 'Retail', 'Wholesale', 'Status'].map((h, i) => (
-                <th key={h} className={`px-[18px] py-3 text-[9px] font-bold uppercase tracking-wide text-[#98a199] ${i >= 2 && i <= 6 ? 'text-right' : 'text-left'}`}>{h}</th>
+              <tr>{['Item / SKU', 'Category', 'In stock', 'Reorder at', 'Cost', 'Retail', 'Wholesale', 'Status', ''].map((h, i) => (
+                <th key={h || 'actions'} className={`px-[18px] py-3 text-[9px] font-bold uppercase tracking-wide text-[#98a199] ${i >= 2 && i <= 6 ? 'text-right' : 'text-left'}`}>{h}</th>
               ))}</tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={8}><EmptyState message="Add an item to start tracking stock." /></td></tr>
+                <tr><td colSpan={9}><EmptyState message="Add an item to start tracking stock." /></td></tr>
               ) : filtered.map((x) => (
                 <tr key={x.id} className="border-t border-[#f0f2ee] transition hover:bg-[#fafbf9]">
                   <td className="px-[18px] py-3 text-[11px] font-semibold text-ink">
-                    <span className="mr-2">{x.emoji || '📦'}</span>{x.name}
+                    <span className="mr-2 inline-grid h-8 w-8 translate-y-2 place-items-center overflow-hidden rounded-md bg-[#f5f4ed] align-middle text-[17px]">
+                      {x.photo ? <img src={x.photo} alt="" loading="lazy" className="h-full w-full object-cover" /> : x.emoji || '📦'}
+                    </span>{x.name}
                     <span className="block text-[9px] font-normal text-muted">{x.sku || 'No SKU'}</span>
                   </td>
                   <td className="px-[18px] py-3 text-[11px] text-[#59645e]">{x.category}</td>
-                  <td className="px-[18px] py-3 text-right text-[11px] font-bold text-ink">{x.qty}</td>
-                  <td className="px-[18px] py-3 text-right text-[11px] text-[#59645e]">{x.reorder}</td>
+                  <td className="px-[18px] py-3 text-right text-[11px] font-bold text-ink">{x.qty} {x.unit || 'pcs'}</td>
+                  <td className="px-[18px] py-3 text-right text-[11px] text-[#59645e]">{x.reorder} {x.unit || 'pcs'}</td>
                   <td className="px-[18px] py-3 text-right text-[11px] text-[#59645e]">{money(x.cost, cur)}</td>
                   <td className="px-[18px] py-3 text-right text-[11px] text-[#59645e]">{money(x.retail, cur)}</td>
                   <td className="px-[18px] py-3 text-right text-[11px] text-[#59645e]">{money(x.wholesale, cur)}</td>
                   <td className="px-[18px] py-3"><Badge tone={x.qty <= x.reorder ? 'red' : 'green'}>{x.qty <= x.reorder ? 'Restock soon' : 'In stock'}</Badge></td>
+                  <td className="px-[18px] py-3 text-right">
+                    <button type="button" onClick={() => setEditingItem(x)} className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-[10px] font-semibold text-brand transition hover:border-brand-300 hover:bg-brand-100" aria-label={`Edit ${x.name}`} title={`Edit ${x.name}`}>
+                      <Pencil size={12} /> <span>Edit</span>
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -189,6 +199,7 @@ export function Inventory() {
       </Modal>
 
       <ItemModal open={open} onClose={() => setOpen(false)} />
+      <ItemModal open={!!editingItem} item={editingItem} onClose={() => setEditingItem(null)} />
     </div>
   );
 }

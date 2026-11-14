@@ -8,6 +8,7 @@ export interface LineItem {
   itemId: number;
   name: string;
   quantity: number;
+  unit?: string;
   unitPrice: number;
   costTotal: number;
 }
@@ -22,6 +23,8 @@ export interface Transaction {
   status: TxnStatus;
   paidAmount: number;
   accountId: number | null;
+  /** Contact record associated with this transaction, when selected. */
+  contactId?: number | null;
   itemId: number | null;
   quantity: number | null;
   lineItems?: LineItem[];
@@ -48,11 +51,15 @@ export interface Item {
   sku: string;
   category: string;
   qty: number;
+  /** Inventory quantity unit, e.g. pcs, kg, L, m, cylinder. */
+  unit?: string;
   reorder: number;
   cost: number;
   retail: number;
   wholesale: number;
   emoji: string;
+  /** Small client-compressed image data URL, stored with the workspace for offline use. */
+  photo?: string;
 }
 
 export type DocKind =

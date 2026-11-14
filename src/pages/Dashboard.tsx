@@ -130,8 +130,8 @@ export function Dashboard({ onNavigate }: { onNavigate: (p: PageId) => void }) {
                   <div className="text-[9px] text-muted">{x.category}</div>
                 </div>
                 <div className="text-right text-[10px] font-bold text-danger">
-                  {x.qty} left
-                  <div className="mt-0.5 font-normal text-muted">Reorder at {x.reorder}</div>
+                  {x.qty} {x.unit || 'pcs'} left
+                  <div className="mt-0.5 font-normal text-muted">Reorder at {x.reorder} {x.unit || 'pcs'}</div>
                 </div>
               </div>
             ))}

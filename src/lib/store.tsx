@@ -29,7 +29,7 @@ interface StoreValue {
   // transactions
   addTransaction: (input: TxnInput) => { ok: boolean; error?: string };
   // contacts
-  addContact: (c: Omit<Contact, 'id' | 'last'>) => void;
+  addContact: (c: Omit<Contact, 'id' | 'last'>) => number;
   updateContact: (id: number, patch: Partial<Contact>) => void;
   // items
   addItem: (i: Omit<Item, 'id' | 'emoji'> & { emoji?: string }) => void;
@@ -383,7 +383,7 @@ export function StoreProvider({ children, scope = 'local' }: { children: ReactNo
       return { ok: false, error: 'This payment is greater than the recorded supplier balance.' };
 
     if (item && (inp.type === 'Sale' || inp.type === 'Purchase')) {
-      if (inp.quantity <= 0) return { ok: false, error: 'Enter a quantity greater than zero.' };
+      if (!Number.isFinite(inp.quantity) || inp.quantity <= 0) return { ok: false, error: 'Enter a quantity greater than zero.' };
       if (inp.type === 'Sale' && inp.quantity > item.qty)
         return { ok: false, error: 'This sale is larger than available stock.' };
     }
@@ -407,6 +407,7 @@ export function StoreProvider({ children, scope = 'local' }: { children: ReactNo
       status: inp.status,
       paidAmount: paidNow,
       accountId: account?.id ?? null,
+      contactId: party?.id ?? null,
       itemId: item?.id ?? null,
       quantity: item ? inp.quantity : null,
       notes: inp.notes,
@@ -416,7 +417,7 @@ export function StoreProvider({ children, scope = 'local' }: { children: ReactNo
       const it = next.items.find((x) => x.id === item.id)!;
       it.qty = roundMoney(it.qty - inp.quantity);
       row.lineItems = [{
-        itemId: item.id, name: item.name, quantity: inp.quantity,
+        itemId: item.id, name: item.name, quantity: inp.quantity, unit: item.unit || 'pcs',
         unitPrice: roundMoney(amount / inp.quantity),
         costTotal: roundMoney(inp.quantity * Number(item.cost || 0)),
       }];
@@ -462,10 +463,12 @@ export function StoreProvider({ children, scope = 'local' }: { children: ReactNo
 
   // ---- Contacts ----
   const addContact = useCallback((c: Omit<Contact, 'id' | 'last'>) => {
+    const id = nextId(data.contacts);
     save({
       ...data,
-      contacts: [...data.contacts, { ...c, id: nextId(data.contacts), last: 'Today' }],
+      contacts: [...data.contacts, { ...c, id, last: 'Today' }],
     });
+    return id;
   }, [data, save]);
 
   const updateContact = useCallback((id: number, patch: Partial<Contact>) => {
@@ -500,7 +503,7 @@ export function StoreProvider({ children, scope = 'local' }: { children: ReactNo
     if (!inp.accountId) return { ok: false, error: 'Choose a cash or bank account before checkout.' };
     for (const l of inp.lines) {
       const it = data.items.find((x) => x.id === l.itemId);
-      if (!it || l.quantity > it.qty) return { ok: false, error: 'Stock changed. Review the cart before checkout.' };
+      if (!it || !Number.isFinite(l.quantity) || l.quantity <= 0 || l.quantity > it.qty) return { ok: false, error: 'Stock changed. Review the cart before checkout.' };
     }
     const next: AppData = {
       ...data,
@@ -513,7 +516,7 @@ export function StoreProvider({ children, scope = 'local' }: { children: ReactNo
       const it = next.items.find((x) => x.id === l.itemId)!;
       it.qty = roundMoney(it.qty - l.quantity);
       return {
-        itemId: it.id, name: it.name, quantity: l.quantity,
+        itemId: it.id, name: it.name, quantity: l.quantity, unit: it.unit || 'pcs',
         unitPrice: Number(it.retail || it.cost || 0),
         costTotal: roundMoney(l.quantity * Number(it.cost || 0)),
       };
@@ -533,6 +536,7 @@ export function StoreProvider({ children, scope = 'local' }: { children: ReactNo
       status: 'Paid',
       paidAmount: sum,
       accountId: account.id,
+      contactId: customer?.id ?? null,
       itemId: null,
       quantity: null,
       lineItems,
@@ -675,6 +679,7 @@ function postInvoiceInto(next: AppData, inv: Invoice) {
   inv.posted = true;
   const outstanding = roundMoney(inv.amount - inv.paidAmount);
   const account = inv.accountId ? next.accounts.find((a) => a.id === inv.accountId) : null;
+  const contact = next.contacts.find((p) => p.type === 'Customer' && p.name.trim().toLowerCase() === inv.contactName.trim().toLowerCase());
   next.transactions.push({
     id: nextId(next.transactions),
     name: inv.contactName,
@@ -685,10 +690,10 @@ function postInvoiceInto(next: AppData, inv: Invoice) {
     status: outstanding === 0 ? 'Paid' : inv.paidAmount > 0 ? 'Part-paid' : 'Due',
     paidAmount: inv.paidAmount,
     accountId: account?.id ?? null,
+    contactId: contact?.id ?? null,
     itemId: null,
     quantity: null,
   });
-  const contact = next.contacts.find((p) => p.type === 'Customer' && p.name.trim().toLowerCase() === inv.contactName.trim().toLowerCase());
   if (contact && outstanding > 0) {
     contact.balanceType = 'They owe me';
     contact.balance = roundMoney(contact.balance + outstanding);

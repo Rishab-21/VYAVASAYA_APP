@@ -71,6 +71,6 @@ export function recentTransactions(data: AppData, n = 5) {
 export function filteredTransactions(data: AppData, query: string, type: string) {
   const q = query.toLowerCase();
   return [...data.transactions]
-    .filter((x) => (type === 'all' || x.type === type) && `${x.name} ${x.category}`.toLowerCase().includes(q))
+    .filter((x) => (type === 'all' || x.type === type) && `${x.name} ${x.category} ${x.date} ${(x.lineItems || []).map((item) => item.name).join(' ')}`.toLowerCase().includes(q))
     .sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
 }

@@ -128,11 +128,11 @@ export function TransactionModal({ open, onClose, initialType = 'Sale' }: Props)
         <Field label="Inventory item (optional)">
           <select className="field-select" value={itemId} onChange={(e) => setItemId(e.target.value)} disabled={!(type === 'Sale' || type === 'Purchase')}>
             <option value="">No stock movement</option>
-            {data.items.map((x) => <option key={x.id} value={x.id}>{x.name} · {x.qty} in stock</option>)}
+            {data.items.map((x) => <option key={x.id} value={x.id}>{x.name} · {x.qty} {x.unit || 'pcs'} in stock</option>)}
           </select>
         </Field>
-        <Field label="Quantity moved">
-          <input className="field-input" value={quantity} onChange={(e) => setQuantity(e.target.value)} type="number" min="0" step="0.01" disabled={!(type === 'Sale' || type === 'Purchase')} />
+        <Field label={`Quantity moved${itemId ? ` (${data.items.find((x) => x.id === Number(itemId))?.unit || 'pcs'})` : ''}`}>
+          <input className="field-input" value={quantity} onChange={(e) => setQuantity(e.target.value)} type="number" min="0" step="any" disabled={!(type === 'Sale' || type === 'Purchase')} />
         </Field>
         <div className="col-span-full">
           <Field label="Notes (optional)">
