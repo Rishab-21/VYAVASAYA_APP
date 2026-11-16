@@ -19,6 +19,7 @@ interface AuthValue {
   configured: boolean;
   previewAllowed: boolean;
   user: User | null;
+  clientReady: boolean;
   loading: boolean;
   preview: boolean;
   enterPreview: () => void;
@@ -66,6 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     configured: Boolean(supabaseClient),
     previewAllowed,
     user,
+    clientReady: Boolean(supabaseClient),
     loading,
     preview,
     enterPreview: () => {
@@ -79,7 +81,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setPreview(false);
         return;
       }
-      if (supabaseClient) await supabaseClient.auth.signOut();
+      if (supabaseClient) {
+        const { error } = await supabaseClient.auth.signOut({ scope: 'local' });
+        // Ensure the UI returns to login even if the network request to
+        // invalidate the remote session fails; local credentials are cleared.
+        setUser(null);
+        if (error) throw error;
+      } else {
+        setUser(null);
+      }
     },
   }), [user, loading, preview, previewAllowed]);
 

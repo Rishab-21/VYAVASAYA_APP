@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { ArrowRight, Check, CircleHelp, Eye, EyeOff, Globe2, LoaderCircle, LockKeyhole, Smartphone, Sparkles } from 'lucide-react';
+import { ArrowRight, BarChart3, Check, CircleHelp, Eye, EyeOff, LoaderCircle, LockKeyhole, Package, Receipt, Smartphone, Sparkles, UsersRound } from 'lucide-react';
 import { BrandArtwork, BrandMark } from '@/components/BrandLogo';
 import { useAuth } from '@/lib/auth';
 
@@ -12,9 +12,23 @@ function normalizePhone(number: string, callingCode: string) {
     : null;
 }
 
-// Supabase Phone auth requires an SMS provider. Use a deterministic internal
-// email identifier instead, while keeping the phone number as the user's ID in
-// the interface. The .invalid domain is reserved and cannot receive mail.
+function countryFlag(code: string) {
+  const flags: Record<string, string> = {
+    '1': '🇺🇸', '7': '🇷🇺', '20': '🇪🇬', '27': '🇿🇦', '30': '🇬🇷', '31': '🇳🇱',
+    '32': '🇧🇪', '33': '🇫🇷', '34': '🇪🇸', '39': '🇮🇹', '41': '🇨🇭', '43': '🇦🇹',
+    '44': '🇬🇧', '45': '🇩🇰', '46': '🇸🇪', '47': '🇳🇴', '48': '🇵🇱', '49': '🇩🇪',
+    '52': '🇲🇽', '55': '🇧🇷', '60': '🇲🇾', '61': '🇦🇺', '62': '🇮🇩', '63': '🇵🇭',
+    '64': '🇳🇿', '65': '🇸🇬', '66': '🇹🇭', '81': '🇯🇵', '82': '🇰🇷', '84': '🇻🇳',
+    '86': '🇨🇳', '90': '🇹🇷', '91': '🇮🇳', '92': '🇵🇰', '93': '🇦🇫',
+    '94': '🇱🇰', '95': '🇲🇲', '960': '🇲🇻', '962': '🇯🇴', '966': '🇸🇦', '971': '🇦🇪',
+    '977': '🇳🇵', '880': '🇧🇩', '852': '🇭🇰', '853': '🇲🇴', '886': '🇹🇼',
+  };
+  const digits = code.replace(/\D/g, '');
+  const dialCode = Object.keys(flags).sort((a, b) => b.length - a.length).find((key) => digits.startsWith(key));
+  return dialCode ? flags[dialCode] : '🌐';
+}
+
+// Legacy accounts used this address before verified-email recovery was added.
 function phoneLoginEmail(phone: string) {
   return `phone${phone.replace(/\D/g, '')}@accounts.vyavasya.invalid`;
 }
@@ -39,6 +53,7 @@ export function Login() {
   const [callingCode, setCallingCode] = useState('+977');
   const [phoneInput, setPhoneInput] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
@@ -59,8 +74,12 @@ export function Login() {
       setError('Enter a valid mobile number. Nepal’s +977 code is filled in for you.');
       return;
     }
-    if (password.length < 8) {
+    if (mode === 'signup' && password.length < 8) {
       setError('Use a password with at least 8 characters.');
+      return;
+    }
+    if (mode === 'signup' && password !== confirmPassword) {
+      setError('The passwords do not match. Re-enter the same password to continue.');
       return;
     }
     if (!client) {
@@ -73,11 +92,14 @@ export function Login() {
     try {
       if (mode === 'signup') {
         const { data, error: signUpError } = await client.auth.signUp({
+          // Keep signup immediate; the real recovery address is verified after
+          // the first session from the in-app account prompt.
           email: phoneLoginEmail(normalized),
           password,
           options: { data: {
             phone_number: normalized,
             login_method: 'phone_password',
+            legacy_phone_email: phoneLoginEmail(normalized),
             full_name: fullName.trim(),
             contact_email: contactEmail.trim().toLowerCase(),
             date_of_birth: dateOfBirth,
@@ -89,15 +111,18 @@ export function Login() {
         });
         if (signUpError) throw signUpError;
         if (data.session) {
-          setNotice('Your account is ready. You’re signed in.');
+          setNotice('Your account is ready. You’re signed in. Add and verify your recovery email in account settings.');
         } else {
           setMode('login');
           setPassword('');
-          setNotice('Account created. Log in with your phone number and password.');
+          setNotice('Account created. Log in with your phone number and password, then add a recovery email in account settings.');
         }
       } else {
-        const { error: signInError } = await client.auth.signInWithPassword({ email: phoneLoginEmail(normalized), password });
+        const { data: authData, error: signInError } = await client.functions.invoke('phone-login', { body: { phone: normalized, password } });
         if (signInError) throw signInError;
+        if (!authData?.access_token || !authData?.refresh_token) throw new Error(authData?.error || 'Could not sign in. Check your phone number and password.');
+        const { error: sessionError } = await client.auth.setSession({ access_token: authData.access_token, refresh_token: authData.refresh_token });
+        if (sessionError) throw sessionError;
       }
     } catch (authError) {
       setError(authError instanceof Error ? authError.message : 'Could not access your account. Check your details and try again.');
@@ -111,15 +136,14 @@ export function Login() {
       <aside className="relative isolate overflow-hidden bg-[radial-gradient(ellipse_at_18%_10%,#2c7555_0%,#174c3b_46%,#10372f_100%)] px-6 pb-[76px] pt-7 text-white sm:px-10 lg:flex lg:min-h-screen lg:flex-col lg:justify-between lg:px-14 lg:py-11 xl:px-[76px]">
         <div className="pointer-events-none absolute -right-24 -top-40 -z-10 h-[440px] w-[440px] rounded-full border border-white/[0.08] sm:-right-10 sm:-top-44 sm:h-[520px] sm:w-[520px]" />
         <div className="pointer-events-none absolute -bottom-64 -left-48 -z-10 h-[560px] w-[560px] rounded-full border border-white/[0.08]" />
-        <div className="pointer-events-none absolute right-[-22px] top-12 -z-10 opacity-[0.3] sm:right-12 lg:right-[-18px] lg:top-[23%] lg:opacity-[0.42]">
-          <div className="grid h-[190px] w-[190px] place-items-center rounded-[54px] bg-gradient-to-br from-[#d5f5a2]/30 to-[#3ed489]/5 shadow-[0_0_90px_rgba(161,232,104,0.25)] ring-1 ring-white/20 sm:h-[230px] sm:w-[230px] lg:h-[320px] lg:w-[320px]">
-            <BrandMark className="h-[160px] w-[160px] drop-shadow-[0_12px_24px_rgba(159,233,103,0.45)] sm:h-[195px] sm:w-[195px] lg:h-[275px] lg:w-[275px]" />
-          </div>
+        <div className="pointer-events-none absolute right-[-22px] top-12 -z-10 sm:right-12 lg:right-[-18px] lg:top-[23%]">
+          <div className="absolute inset-[12%] rounded-full bg-[#b9ed7b]/15 blur-3xl" />
+          <BrandMark className="relative h-[190px] w-[190px] opacity-75 drop-shadow-[0_12px_28px_rgba(185,237,123,0.38)] sm:h-[230px] sm:w-[230px] lg:h-[320px] lg:w-[320px]" />
         </div>
 
         <BrandArtwork className="relative w-[150px] rounded-[12px] bg-[#f8f8f4] p-1 shadow-[0_10px_35px_rgba(0,0,0,0.14)] ring-1 ring-white/30 sm:w-[172px]" />
 
-        <div className="relative mt-12 max-w-[610px] lg:my-auto lg:pb-12 lg:pt-20">
+        <div className="relative mt-12 max-w-[610px] lg:mt-10 lg:pb-0 lg:pt-0">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.09] px-3 py-1.5 text-[10px] font-bold text-[#def0df] shadow-sm backdrop-blur sm:mb-6 sm:text-[11px]">
             <Sparkles size={13} className="text-[#b1e676]" /> BUSINESS, IN BETTER VIEW
           </div>
@@ -129,18 +153,39 @@ export function Login() {
           <p className="mt-3 max-w-[410px] text-[12px] leading-6 text-white/70 sm:mt-5 sm:text-[14px] sm:leading-7">
             Sign in to keep your sales, stock and cash records organized in one calm workspace.
           </p>
-          <div className="mt-6 hidden max-w-[400px] grid-cols-2 gap-2.5 sm:grid">
-            <div className="rounded-2xl border border-white/10 bg-white/[0.08] p-3.5 backdrop-blur-sm">
-              <div className="mb-2 grid h-8 w-8 place-items-center rounded-xl bg-[#a5dc6d]/15 text-[#b9ed7b]"><Check size={16} /></div>
-              <div className="text-[11px] font-bold text-white">Sales & expenses</div>
-              <div className="mt-1 text-[10px] text-white/55">Know where today stands</div>
+          {mode === 'signup' ? (
+            <div className="mt-7 max-w-[460px] rounded-[22px] border border-white/15 bg-white/[0.09] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.12)] backdrop-blur-md sm:mt-9 sm:p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div><div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#b9ed7b]">Your workspace</div><div className="mt-1 text-[15px] font-bold text-white sm:text-[17px]">Everything in one clear view</div></div>
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#b9ed7b]/15 text-[#c8f28f]"><BarChart3 size={19} /></span>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                {[
+                  { icon: Receipt, title: 'Sales & payments', detail: 'Track bills and balances' },
+                  { icon: Package, title: 'Inventory', detail: 'Keep stock in view' },
+                  { icon: UsersRound, title: 'Customers', detail: 'Remember every regular' },
+                  { icon: BarChart3, title: 'Business reports', detail: 'Understand your numbers' },
+                ].map(({ icon: Icon, title, detail }) => <div key={title} className="flex items-start gap-2 rounded-xl border border-white/10 bg-[#103b30]/35 p-2.5 sm:p-3">
+                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[#b9ed7b]/15 text-[#c8f28f]"><Icon size={14} /></span>
+                  <span className="min-w-0"><span className="block text-[10px] font-bold text-white sm:text-[11px]">{title}</span><span className="mt-0.5 block text-[9px] leading-4 text-white/65 sm:text-[10px]">{detail}</span></span>
+                </div>)}
+              </div>
+              <div className="mt-3 flex items-center gap-2 border-t border-white/10 pt-3 text-[10px] font-medium text-white/75"><Check size={13} className="text-[#b9ed7b]" /> One account for your business workspace</div>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/[0.08] p-3.5 backdrop-blur-sm">
-              <div className="mb-2 grid h-8 w-8 place-items-center rounded-xl bg-[#a5dc6d]/15 text-[#b9ed7b]"><Smartphone size={15} /></div>
-              <div className="text-[11px] font-bold text-white">Simple sign-in</div>
-              <div className="mt-1 text-[10px] text-white/55">Phone number and password</div>
+          ) : (
+            <div className="mt-6 hidden max-w-[400px] grid-cols-2 gap-2.5 sm:grid">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.08] p-3.5 backdrop-blur-sm">
+                <div className="mb-2 grid h-8 w-8 place-items-center rounded-xl bg-[#a5dc6d]/15 text-[#b9ed7b]"><Check size={16} /></div>
+                <div className="text-[11px] font-bold text-white">Sales & expenses</div>
+                <div className="mt-1 text-[10px] text-white/55">Know where today stands</div>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.08] p-3.5 backdrop-blur-sm">
+                <div className="mb-2 grid h-8 w-8 place-items-center rounded-xl bg-[#a5dc6d]/15 text-[#b9ed7b]"><Smartphone size={15} /></div>
+                <div className="text-[11px] font-bold text-white">Simple sign-in</div>
+                <div className="mt-1 text-[10px] text-white/55">Phone number and password</div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         <div className="relative hidden items-center justify-between text-[10px] text-white/45 lg:flex">
@@ -166,7 +211,7 @@ export function Login() {
 
               <div className="mt-6 grid grid-cols-2 rounded-xl bg-[#f4f7f3] p-1">
                 {(['login', 'signup'] as const).map((item) => (
-                  <button key={item} type="button" onClick={() => { setMode(item); setError(''); setNotice(''); }} className={`rounded-[9px] py-2.5 text-[11px] font-bold transition ${mode === item ? 'bg-white text-[#285f42] shadow-sm' : 'text-[#7b887e] hover:text-[#435b49]'}`}>
+                  <button key={item} type="button" onClick={() => { setMode(item); setError(''); setNotice(''); setConfirmPassword(''); }} className={`rounded-[9px] py-2.5 text-[11px] font-bold transition ${mode === item ? 'bg-white text-[#285f42] shadow-sm' : 'text-[#7b887e] hover:text-[#435b49]'}`}>
                     {item === 'login' ? 'Log in' : 'Create account'}
                   </button>
                 ))}
@@ -210,7 +255,7 @@ export function Login() {
                     <label htmlFor="login-phone" className="block text-[11px] font-bold text-[#45554b]">Mobile number</label>
                     <div className="flex h-[54px] items-center gap-2 rounded-[13px] border border-[#dfe7de] bg-[#fbfcfa] px-2 transition focus-within:border-[#68a77c] focus-within:bg-white focus-within:shadow-[0_0_0_4px_rgba(91,164,111,0.12)]">
                       <div className="flex h-10 items-center gap-1.5 rounded-[9px] border border-[#e8ede7] bg-white px-2.5">
-                        <Globe2 size={14} aria-hidden="true" className="text-[#6a9f74]" />
+                        <span aria-hidden="true" className="grid h-[22px] w-[22px] place-items-center rounded-full bg-[#f1f5f0] text-[16px] leading-none">{countryFlag(callingCode)}</span>
                         <input
                           aria-label="Country calling code"
                           className="w-[43px] bg-transparent text-center text-[13px] font-bold text-[#344b3d] outline-none"
@@ -233,17 +278,20 @@ export function Login() {
                         required
                       />
                     </div>
-                    <div className="flex items-center justify-between gap-3 text-[10px] leading-5 text-[#8a958d]">
-                      <span>Nepal’s +977 code is already filled in.</span>
-                      <span className="shrink-0">Change it for another country</span>
-                    </div>
-
                     <label htmlFor="login-password" className="block text-[11px] font-bold text-[#45554b]">Password</label>
                     <div className="flex h-[54px] items-center rounded-[13px] border border-[#dfe7de] bg-[#fbfcfa] px-3 transition focus-within:border-[#68a77c] focus-within:bg-white focus-within:shadow-[0_0_0_4px_rgba(91,164,111,0.12)]">
                       <LockKeyhole size={16} className="mr-2.5 shrink-0 text-[#78a381]" />
                       <input id="login-password" type={showPassword ? 'text' : 'password'} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} minLength={8} className="h-full min-w-0 flex-1 bg-transparent text-[13px] text-[#24362c] outline-none placeholder:text-[#a7b0a8]" placeholder="At least 8 characters" value={password} onChange={(e) => { setPassword(e.target.value); setError(''); }} required />
                       <button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword((visible) => !visible)} className="p-1.5 text-[#8b998e] hover:text-[#3f7851]">{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button>
                     </div>
+
+                    {mode === 'signup' && <>
+                      <label htmlFor="confirm-password" className="block text-[11px] font-bold text-[#45554b]">Confirm password</label>
+                      <div className="flex h-[54px] items-center rounded-[13px] border border-[#dfe7de] bg-[#fbfcfa] px-3 transition focus-within:border-[#68a77c] focus-within:bg-white focus-within:shadow-[0_0_0_4px_rgba(91,164,111,0.12)]">
+                        <LockKeyhole size={16} className="mr-2.5 shrink-0 text-[#78a381]" />
+                        <input id="confirm-password" type={showPassword ? 'text' : 'password'} autoComplete="new-password" minLength={8} className="h-full min-w-0 flex-1 bg-transparent text-[13px] text-[#24362c] outline-none placeholder:text-[#a7b0a8]" placeholder="Enter the same password again" value={confirmPassword} onChange={(e) => { setConfirmPassword(e.target.value); setError(''); }} onPaste={(e) => e.preventDefault()} onDrop={(e) => e.preventDefault()} required />
+                      </div>
+                    </>}
 
                     {error && <p role="alert" className="rounded-xl border border-[#f3d6d1] bg-[#fff5f2] px-3 py-2.5 text-[11px] leading-5 text-[#a94f42]">{error}</p>}
                     {notice && <p role="status" className="rounded-xl border border-[#d5e9d5] bg-[#f1f8ef] px-3 py-2.5 text-[11px] leading-5 text-[#39744a]">{notice}</p>}
@@ -267,7 +315,7 @@ export function Login() {
                     <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-white text-[#4b9664] shadow-sm"><Check size={14} /></span>
                     <p className="pt-0.5 text-[10px] leading-5 text-[#77837b]"><b className="font-bold text-[#45554b]">{mode === 'signup' ? 'Your data follows your account.' : 'New to Vyavasya?'}</b> {mode === 'signup' ? 'Your records will sync across devices after you log in.' : 'Choose Create account first, then log in with the same details.'}</p>
                   </div>
-          <p className="mt-4 text-center text-[10px] leading-5 text-[#8a958d]">This account uses no SMS or email codes. Forgotten passwords cannot be recovered yet.</p>
+          <p className="mt-4 text-center text-[10px] leading-5 text-[#8a958d]">Email verification enables secure password recovery. Your phone number remains your login ID.</p>
             </div>
           </section>
 

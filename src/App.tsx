@@ -120,7 +120,11 @@ function AppContent() {
     <>
       <StoreProvider key={storageScope} scope={storageScope}>
         <div className="min-h-screen md:pl-[248px]">
-          <Sidebar page={page} onNavigate={navigate} open={menuOpen} onClose={() => setMenuOpen(false)} onSignOut={() => void auth.signOut()} />
+          <Sidebar page={page} onNavigate={navigate} open={menuOpen} onClose={() => setMenuOpen(false)} onSignOut={() => {
+            void auth.signOut().catch(() => {
+              // Local sign-out still returns the user to the login screen.
+            });
+          }} />
           <div className="flex min-h-screen flex-col">
             <Topbar page={page} onOpenMenu={() => setMenuOpen(true)} onOpenSettings={() => navigate('settings')} />
             <main className="mx-auto w-full max-w-[1320px] flex-1 px-4 py-8 md:px-9 md:pb-14">
