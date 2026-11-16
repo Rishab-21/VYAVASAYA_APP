@@ -28,7 +28,8 @@ function countryFlag(code: string) {
   return dialCode ? flags[dialCode] : '🌐';
 }
 
-// Legacy accounts used this address before verified-email recovery was added.
+// Supabase Phone auth requires an SMS provider. Use a deterministic internal
+// email identifier instead, while keeping the phone number as the user's ID.
 function phoneLoginEmail(phone: string) {
   return `phone${phone.replace(/\D/g, '')}@accounts.vyavasya.invalid`;
 }
@@ -111,18 +112,15 @@ export function Login() {
         });
         if (signUpError) throw signUpError;
         if (data.session) {
-          setNotice('Your account is ready. You’re signed in. Add and verify your recovery email in account settings.');
+          setNotice('Your account is ready. You’re signed in.');
         } else {
           setMode('login');
           setPassword('');
-          setNotice('Account created. Log in with your phone number and password, then add a recovery email in account settings.');
+          setNotice('Account created. Log in with your phone number and password.');
         }
       } else {
-        const { data: authData, error: signInError } = await client.functions.invoke('phone-login', { body: { phone: normalized, password } });
+        const { error: signInError } = await client.auth.signInWithPassword({ email: phoneLoginEmail(normalized), password });
         if (signInError) throw signInError;
-        if (!authData?.access_token || !authData?.refresh_token) throw new Error(authData?.error || 'Could not sign in. Check your phone number and password.');
-        const { error: sessionError } = await client.auth.setSession({ access_token: authData.access_token, refresh_token: authData.refresh_token });
-        if (sessionError) throw sessionError;
       }
     } catch (authError) {
       setError(authError instanceof Error ? authError.message : 'Could not access your account. Check your details and try again.');
@@ -315,7 +313,7 @@ export function Login() {
                     <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-white text-[#4b9664] shadow-sm"><Check size={14} /></span>
                     <p className="pt-0.5 text-[10px] leading-5 text-[#77837b]"><b className="font-bold text-[#45554b]">{mode === 'signup' ? 'Your data follows your account.' : 'New to Vyavasya?'}</b> {mode === 'signup' ? 'Your records will sync across devices after you log in.' : 'Choose Create account first, then log in with the same details.'}</p>
                   </div>
-          <p className="mt-4 text-center text-[10px] leading-5 text-[#8a958d]">Email verification enables secure password recovery. Your phone number remains your login ID.</p>
+          <p className="mt-4 text-center text-[10px] leading-5 text-[#8a958d]">Your phone number is your login ID. Keep your password private.</p>
             </div>
           </section>
 
