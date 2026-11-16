@@ -1,23 +1,27 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal, Field } from './Modal';
 import { useStore } from '@/lib/store';
 import { localDateKey, dateLong } from '@/lib/format';
 import type { PurchaseKind, PurchaseStatus } from '@/lib/types';
 import { Plus, Trash2 } from 'lucide-react';
 
-export function PurchaseModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function PurchaseModal({ open, onClose, initialSupplier = '' }: { open: boolean; onClose: () => void; initialSupplier?: string }) {
   const { data, addPurchase, toast } = useStore();
   const [kind, setKind] = useState<PurchaseKind>('Purchase order');
   const [contactName, setContactName] = useState('');
   const [date, setDate] = useState(localDateKey());
-  const [lines, setLines] = useState<{ description: string; quantity: number; unitPrice: number }[]>([{ description: '', quantity: 1, unitPrice: 0 }]);
+  const [lines, setLines] = useState<{ description: string; quantity: number; unit: string; unitPrice: number }[]>([{ description: '', quantity: 1, unit: '', unitPrice: 0 }]);
   const [status, setStatus] = useState<PurchaseStatus>('Draft');
   const [paidAmount, setPaidAmount] = useState('0');
   const [accountId, setAccountId] = useState('');
 
+  useEffect(() => {
+    if (open && initialSupplier) setContactName(initialSupplier);
+  }, [open, initialSupplier]);
+
   const reset = () => {
-    setKind('Purchase order'); setContactName(''); setDate(localDateKey());
-    setLines([{ description: '', quantity: 1, unitPrice: 0 }]); setStatus('Draft'); setPaidAmount('0');
+    setKind('Purchase order'); setContactName(initialSupplier); setDate(localDateKey());
+    setLines([{ description: '', quantity: 1, unit: '', unitPrice: 0 }]); setStatus('Draft'); setPaidAmount('0');
     setAccountId(String(data.accounts[0]?.id || ''));
   };
 
@@ -37,8 +41,14 @@ export function PurchaseModal({ open, onClose }: { open: boolean; onClose: () =>
     onClose();
   };
 
-  const updateLine = (i: number, field: 'description' | 'quantity' | 'unitPrice', value: string | number) => {
-    const next = [...lines]; next[i] = { ...next[i], [field]: value }; setLines(next);
+  const updateLine = (i: number, field: 'description' | 'quantity' | 'unit' | 'unitPrice', value: string | number) => {
+    const next = [...lines];
+    next[i] = { ...next[i], [field]: value };
+    if (field === 'description') {
+      const item = data.items.find((candidate) => candidate.name.trim().toLowerCase() === String(value).trim().toLowerCase());
+      if (item?.unit) next[i].unit = item.unit;
+    }
+    setLines(next);
   };
 
   return (
@@ -65,9 +75,10 @@ export function PurchaseModal({ open, onClose }: { open: boolean; onClose: () =>
             <div className="field-label mb-1.5">Line items</div>
             <div className="space-y-2">
               {lines.map((l, i) => (
-                <div key={i} className="flex items-center gap-2">
+                <div key={i} className="grid grid-cols-[minmax(90px,1fr)_58px_62px_76px_64px_auto] items-center gap-1.5">
                   <input className="field-input flex-1" placeholder="Item description" list={`purchaseItems-${i}`} value={l.description} onChange={(e) => updateLine(i, 'description', e.target.value)} />
                   <input className="field-input w-16 text-right" type="number" min="0" step="any" placeholder="Qty" aria-label={`Quantity${data.items.find((item) => item.name.trim().toLowerCase() === l.description.trim().toLowerCase()) ? ` in ${data.items.find((item) => item.name.trim().toLowerCase() === l.description.trim().toLowerCase())?.unit || 'pcs'}` : ''}`} value={l.quantity} onChange={(e) => updateLine(i, 'quantity', Number(e.target.value))} />
+                  <input className="field-input px-1.5 text-center" placeholder="Unit" aria-label="Quantity unit" value={l.unit} onChange={(e) => updateLine(i, 'unit', e.target.value)} />
                   <datalist id={`purchaseItems-${i}`}>{data.items.map((item) => <option key={item.id} value={item.name}>{item.name} · {item.unit || 'pcs'}</option>)}</datalist>
                   <input className="field-input w-24 text-right" type="number" min="0" step="0.01" placeholder="Price" aria-label={`Price per ${data.items.find((item) => item.name.trim().toLowerCase() === l.description.trim().toLowerCase())?.unit || 'unit'}`} value={l.unitPrice} onChange={(e) => updateLine(i, 'unitPrice', Number(e.target.value))} />
                   <div className="w-20 text-right text-[11px] font-bold text-ink">{(l.quantity * l.unitPrice).toLocaleString('en-IN')}</div>
@@ -75,7 +86,7 @@ export function PurchaseModal({ open, onClose }: { open: boolean; onClose: () =>
                 </div>
               ))}
             </div>
-            <button type="button" onClick={() => setLines([...lines, { description: '', quantity: 1, unitPrice: 0 }])} className="mt-2 inline-flex items-center gap-1 text-[11px] font-bold text-brand-500"><Plus size={13} /> Add line</button>
+            <button type="button" onClick={() => setLines([...lines, { description: '', quantity: 1, unit: '', unitPrice: 0 }])} className="mt-2 inline-flex items-center gap-1 text-[11px] font-bold text-brand-500"><Plus size={13} /> Add line</button>
             <div className="mt-2 flex justify-end border-t border-line pt-2 text-[13px] font-bold text-ink">Total: {total.toLocaleString('en-IN')}</div>
           </div>
 

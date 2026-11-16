@@ -5,7 +5,7 @@ import { BrandLockup } from '@/components/BrandLogo';
 import {
   LayoutDashboard, ShoppingCart, ArrowLeftRight, Users, Package,
   FileText, ClipboardList, Wallet, BarChart3, Settings as SettingsIcon,
-  Menu, ChevronDown, Store, Sparkles, Plus, LogOut,
+  Menu, ChevronDown, Store, Handshake, Plus, LogOut,
 } from 'lucide-react';
 
 interface NavItem { id: PageId; label: string; icon: typeof LayoutDashboard; }
@@ -13,7 +13,8 @@ const navItems: NavItem[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'pos', label: 'Counter / POS', icon: ShoppingCart },
   { id: 'transactions', label: 'Transactions', icon: ArrowLeftRight },
-  { id: 'contacts', label: 'Customers & suppliers', icon: Users },
+  { id: 'contacts', label: 'Customers', icon: Users },
+  { id: 'commercial', label: 'Suppliers & purchases', icon: Handshake },
   { id: 'inventory', label: 'Inventory', icon: Package },
   { id: 'invoices', label: 'Invoices & quotations', icon: FileText },
   { id: 'purchases', label: 'Purchase orders', icon: ClipboardList },
@@ -146,14 +147,6 @@ export function Sidebar({ page, onNavigate, open, onClose, onSignOut }: SidebarP
         </nav>
 
         {/* bottom */}
-        <div className="mx-3 mb-3 mt-auto">
-          <div className="rounded-xl bg-[#f7f8f5] p-3">
-            <div className="flex items-center gap-1.5 text-[12px] font-bold text-ink">
-              <Sparkles size={13} className="text-brand-500" /> Your business, in focus
-            </div>
-            <p className="mt-1.5 text-[11px] leading-relaxed text-muted">Vyavasya keeps the daily numbers together so you can spend more time growing.</p>
-          </div>
-        </div>
         <div className="flex items-center gap-2.5 border-t border-line px-4 py-3.5">
           <div className="grid h-[34px] w-[34px] place-items-center rounded-full bg-[#d9e9db] text-[12px] font-bold text-brand">{initials}</div>
           <div className="min-w-0 flex-1">

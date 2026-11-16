@@ -3,16 +3,16 @@ import { Modal, Field } from './Modal';
 import { useStore } from '@/lib/store';
 import type { ContactType, BalanceType } from '@/lib/types';
 
-export function ContactModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function ContactModal({ open, onClose, initialType = 'Customer', fixedType = false }: { open: boolean; onClose: () => void; initialType?: ContactType; fixedType?: boolean }) {
   const { addContact, toast } = useStore();
   const [name, setName] = useState('');
-  const [type, setType] = useState<ContactType>('Customer');
+  const [type, setType] = useState<ContactType>(initialType);
   const [phone, setPhone] = useState('');
   const [balance, setBalance] = useState('0');
-  const [balanceType, setBalanceType] = useState<BalanceType>('They owe me');
+  const [balanceType, setBalanceType] = useState<BalanceType>(initialType === 'Supplier' ? 'I owe them' : 'They owe me');
   const [notes, setNotes] = useState('');
 
-  const reset = () => { setName(''); setType('Customer'); setPhone(''); setBalance('0'); setBalanceType('They owe me'); setNotes(''); };
+  const reset = () => { setName(''); setType(initialType); setPhone(''); setBalance('0'); setBalanceType(initialType === 'Supplier' ? 'I owe them' : 'They owe me'); setNotes(''); };
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,11 +32,11 @@ export function ContactModal({ open, onClose }: { open: boolean; onClose: () => 
         <div className="col-span-full">
           <Field label="Name"><input className="field-input mt-1.5" value={name} onChange={(e) => setName(e.target.value)} required placeholder="Business or person" /></Field>
         </div>
-        <Field label="Type">
+        {!fixedType && <Field label="Type">
           <select className="field-select" value={type} onChange={(e) => setType(e.target.value as ContactType)}>
             <option>Customer</option><option>Supplier</option>
           </select>
-        </Field>
+        </Field>}
         <Field label="Phone"><input className="field-input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="98XXXXXXXX" /></Field>
         <Field label="Opening balance"><input className="field-input" value={balance} onChange={(e) => setBalance(e.target.value)} type="number" min="0" /></Field>
         <Field label="Balance type">

@@ -20,6 +20,10 @@ export interface Transaction {
   category: string;
   date: string; // YYYY-MM-DD
   amount: number;
+  /** Pre-discount sale total, when a POS discount was applied. */
+  subtotal?: number;
+  /** Discount deducted from the pre-discount total. */
+  discountAmount?: number;
   status: TxnStatus;
   paidAmount: number;
   accountId: number | null;
@@ -94,6 +98,7 @@ export type PurchaseStatus = 'Draft' | 'Sent' | 'Part received' | 'Received' | '
 export interface PurchaseLine {
   description: string;
   quantity: number;
+  unit?: string;
   unitPrice: number;
 }
 export interface Purchase {
@@ -153,6 +158,7 @@ export type PageId =
   | 'pos'
   | 'transactions'
   | 'contacts'
+  | 'commercial'
   | 'inventory'
   | 'invoices'
   | 'purchases'

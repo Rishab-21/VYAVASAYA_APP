@@ -10,6 +10,7 @@ import { Inventory } from '@/pages/Inventory';
 import { POS } from '@/pages/POS';
 import { Invoices } from '@/pages/Invoices';
 import { Purchases } from '@/pages/Purchases';
+import { CommercialPartners } from '@/pages/CommercialPartners';
 import { Accounts } from '@/pages/Accounts';
 import { Reports } from '@/pages/Reports';
 import { Settings } from '@/pages/Settings';
@@ -127,6 +128,7 @@ function AppContent() {
               {page === 'pos' && <POS />}
               {page === 'transactions' && <Transactions />}
               {page === 'contacts' && <Contacts />}
+              {page === 'commercial' && <CommercialPartners />}
               {page === 'inventory' && <Inventory />}
               {page === 'invoices' && <Invoices />}
               {page === 'purchases' && <Purchases />}

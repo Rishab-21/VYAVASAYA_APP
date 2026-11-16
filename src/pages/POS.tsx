@@ -3,7 +3,7 @@ import { useStore } from '@/lib/store';
 import { money } from '@/lib/format';
 import { PageHead, Panel, EmptyState, Badge, Callout } from '@/components/ui';
 import { Field, Modal } from '@/components/Modal';
-import { Search, Minus, Plus as PlusIcon, ShoppingCart, Trash2, UserRound, Check, X } from 'lucide-react';
+import { Search, Minus, Plus as PlusIcon, ShoppingCart, Trash2, UserRound, Check, X, TriangleAlert } from 'lucide-react';
 
 export function POS() {
   const { data, posCheckout, addContact, toast } = useStore();
@@ -14,12 +14,16 @@ export function POS() {
   const [customerSearch, setCustomerSearch] = useState('');
   const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
   const [showCustomerForm, setShowCustomerForm] = useState(false);
+  const [lossConfirmationOpen, setLossConfirmationOpen] = useState(false);
   const [newCustomerName, setNewCustomerName] = useState('');
   const [newCustomerPhone, setNewCustomerPhone] = useState('');
   const [customerConsented, setCustomerConsented] = useState(false);
   const preferredAccount = data.accounts.find((x) => x.type === 'Cash') || data.accounts[0];
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Online'>(preferredAccount?.type === 'Cash' ? 'Cash' : 'Online');
   const [accountId, setAccountId] = useState(String(preferredAccount?.id || ''));
+  const [discountType, setDiscountType] = useState<'amount' | 'percent'>('amount');
+  const [discountValue, setDiscountValue] = useState('0');
+  const [paidNowInput, setPaidNowInput] = useState('');
   const cur = data.settings.currency;
   const paymentAccounts = data.accounts.filter((x) => paymentMethod === 'Cash' ? x.type === 'Cash' : x.type !== 'Cash');
   const selectedCustomer = data.contacts.find((x) => x.id === Number(customerId) && x.type === 'Customer');
@@ -73,7 +77,17 @@ export function POS() {
     .filter((x) => x.item) as { item: typeof data.items[number]; qty: number }[], [cart, data.items, quantityDrafts]);
 
   const count = cartLines.length;
-  const total = cartLines.reduce((a, x) => a + x.qty * (x.item.retail || x.item.cost), 0);
+  const subtotal = cartLines.reduce((a, x) => a + x.qty * (x.item.retail || x.item.cost), 0);
+  const discountEntry = discountValue.trim() === '' ? 0 : Number(discountValue);
+  const discountInvalid = !Number.isFinite(discountEntry) || discountEntry < 0 || (discountType === 'percent' ? discountEntry > 100 : discountEntry > subtotal);
+  const discountAmount = Math.min(subtotal, Math.max(0, discountType === 'percent' ? subtotal * discountEntry / 100 : discountEntry));
+  const total = Math.max(0, subtotal - discountAmount);
+  const estimatedCost = cartLines.reduce((sum, line) => sum + line.qty * Number(line.item.cost || 0), 0);
+  const estimatedLoss = Math.max(0, estimatedCost - total);
+  const saleAtLoss = estimatedLoss > 0.005;
+  const paidNow = paidNowInput.trim() === '' ? total : Number(paidNowInput);
+  const paidInvalid = !Number.isFinite(paidNow) || paidNow < 0 || paidNow > total;
+  const dueAmount = Math.max(0, total - (Number.isFinite(paidNow) ? paidNow : 0));
 
   const addToCart = (itemId: number) => {
     const item = data.items.find((x) => x.id === itemId);
@@ -111,16 +125,31 @@ export function POS() {
   };
   const clearCart = () => { setCart({}); setQuantityDrafts({}); };
 
-  const checkout = () => {
+  const completeSale = () => {
     const res = posCheckout({
       lines: cartLines.map(({ item, qty }) => ({ itemId: item.id, quantity: qty })),
       customerId: customerId ? Number(customerId) : null,
       accountId: accountId ? Number(accountId) : null,
+      discountAmount: Math.round(discountAmount * 100) / 100,
+      paidNow: Math.round(paidNow * 100) / 100,
     });
     if (!res.ok) { toast(res.error || 'Checkout failed'); return; }
-    toast(`Sale completed; ${paymentMethod.toLowerCase()} payment recorded`);
+    toast(dueAmount > 0 ? `Sale saved; ${money(dueAmount, cur)} added to customer balance` : `Sale completed; ${paymentMethod.toLowerCase()} payment recorded`);
     setCart({});
     setQuantityDrafts({});
+    setDiscountType('amount');
+    setDiscountValue('0');
+    setPaidNowInput('');
+  };
+
+  const checkout = () => {
+    if (saleAtLoss) { setLossConfirmationOpen(true); return; }
+    completeSale();
+  };
+
+  const confirmLossSale = () => {
+    setLossConfirmationOpen(false);
+    completeSale();
   };
 
   return (
@@ -208,7 +237,7 @@ export function POS() {
                 <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => { setCustomerId(''); setCustomerSearch(''); setCustomerSearchOpen(false); }} className={`flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-[11px] transition hover:bg-[#f7f8f5] ${!customerId ? 'text-brand' : 'text-ink'}`}>
                   <UserRound size={13} /><span className="flex-1 font-semibold">Walk-in customer</span>{!customerId && <Check size={13} />}
                 </button>
-                {customerMatches.length > 0 ? customerMatches.map((customer) => <button key={customer.id} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => { setCustomerId(String(customer.id)); setCustomerSearch(''); setCustomerSearchOpen(false); }} className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-[11px] transition hover:bg-[#f7f8f5]">
+                {customerMatches.length > 0 ? customerMatches.map((customer) => <button key={customer.id} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => { setCustomerId(String(customer.id)); setCustomerSearch(customer.name); setCustomerSearchOpen(false); }} className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-[11px] transition hover:bg-[#f7f8f5]">
                   <span className="grid h-7 w-7 place-items-center rounded-full bg-brand-100 text-[9px] font-bold text-brand">{customer.name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase()}</span>
                   <span className="min-w-0 flex-1"><span className="block truncate font-semibold text-ink">{customer.name}</span><span className="block truncate text-[9px] text-muted">{customer.phone || 'No phone saved'}</span></span>
                   {Number(customerId) === customer.id && <Check size={13} className="text-brand" />}
@@ -230,14 +259,32 @@ export function POS() {
                   {paymentAccounts.map((x) => <option key={x.id} value={x.id}>{x.name} · {x.type}</option>)}
                 </select>
               </label>
-              {paymentAccounts.length === 0 ? <p className="mt-1.5 text-[9px] text-amber-700">Add a {paymentMethod === 'Cash' ? 'cash' : 'bank or mobile wallet'} account in Accounts to record this payment.</p> : paymentMethod === 'Online' && <p className="mt-1.5 text-[9px] text-muted">Records an online payment you have received; checkout does not process the payment.</p>}
+              {paidNow > 0 && paymentAccounts.length === 0 ? <p className="mt-1.5 text-[9px] text-amber-700">Add a {paymentMethod === 'Cash' ? 'cash' : 'bank or mobile wallet'} account in Accounts to record this payment.</p> : paymentMethod === 'Online' && paidNow > 0 && <p className="mt-1.5 text-[9px] text-muted">Records an online payment you have received; checkout does not process the payment.</p>}
             </div>
             <div className="my-3.5 flex items-center justify-between">
-              <span className="text-[12px] text-[#78827b]">Total</span>
-              <b className="font-display text-[20px] font-bold text-ink">{money(total, cur)}</b>
+              <span className="text-[11px] font-medium text-[#46584c]">Discount</span>
+              <div className="flex w-[190px] gap-1.5">
+                <input aria-label="Discount value" className="field-input h-[34px] text-right" type="number" min="0" max={discountType === 'percent' ? 100 : subtotal} step="0.01" value={discountValue} onChange={(event) => setDiscountValue(event.target.value)} />
+                <select aria-label="Discount type" className="field-select h-[34px] w-[76px] px-2" value={discountType} onChange={(event) => setDiscountType(event.target.value as 'amount' | 'percent')}>
+                  <option value="amount">{cur}</option><option value="percent">%</option>
+                </select>
+              </div>
             </div>
-            <button className="btn-primary w-full" onClick={checkout} disabled={cartLines.length === 0}>
-              <ShoppingCart size={15} /> Complete sale
+            {discountInvalid && <p className="-mt-2 mb-2 text-right text-[10px] font-semibold text-danger">Discount must be between zero and the subtotal.</p>}
+            <div className="space-y-1.5 border-t border-line pt-2.5 text-[11px]">
+              <div className="flex justify-between text-[#46584c]"><span>Subtotal</span><span>{money(subtotal, cur)}</span></div>
+              <div className="flex justify-between text-[#46584c]"><span>Discount</span><span>− {money(discountAmount, cur)}</span></div>
+              <div className="flex justify-between border-t border-line pt-2 text-[13px] font-bold text-ink"><span>Bill total</span><span>{money(total, cur)}</span></div>
+            </div>
+            <label className="mt-3 grid gap-1 text-[10px] font-medium text-[#46584c]">Payment received now
+              <input className="field-input" type="number" min="0" max={total} step="0.01" placeholder={`Full amount (${money(total, cur)})`} value={paidNowInput} onChange={(event) => setPaidNowInput(event.target.value)} />
+            </label>
+            {paidInvalid && <p className="mt-1 text-[10px] font-semibold text-danger">Enter an amount from zero to the bill total.</p>}
+            {dueAmount > 0 && !selectedCustomer && <p className="mt-1 rounded-lg bg-[#fff3e7] px-2.5 py-2 text-[10px] font-semibold text-[#87500a]">Choose or save a customer to record the {money(dueAmount, cur)} balance due.</p>}
+            {saleAtLoss && <div className="mt-2 rounded-lg border border-[#f0c9c1] bg-[#fff3f0] px-3 py-2.5 text-[10px] leading-relaxed text-[#8e3d31]"><span className="inline-flex items-center gap-1.5 font-bold"><TriangleAlert size={13} /> Sale below cost</span><p className="mt-1">After the discount, this bill is {money(estimatedLoss, cur)} below the estimated cost of the items.</p></div>}
+            <div className="mt-2 flex justify-between rounded-lg bg-[#f1f7f3] px-3 py-2 text-[12px] font-bold text-[#164b39]"><span>To collect</span><span>{money(dueAmount, cur)}</span></div>
+            <button className={`btn-primary mt-3 w-full ${saleAtLoss ? '!bg-[#a94738] hover:!bg-[#8e3d31]' : ''}`} onClick={checkout} disabled={cartLines.length === 0 || discountInvalid || paidInvalid || (dueAmount > 0 && !selectedCustomer) || (paidNow > 0 && !accountId)}>
+              {saleAtLoss ? <><TriangleAlert size={15} /> Review loss warning</> : <><ShoppingCart size={15} /> Complete sale</>}
             </button>
             <p className="mt-2 text-center text-[9px] text-[#9aa49d]">Checkout records revenue, cost of goods, stock, and selected account.</p>
           </div>
@@ -258,6 +305,24 @@ export function POS() {
             <button type="submit" className="btn-primary">Save and select</button>
           </div>
         </form>
+      </Modal>
+      <Modal open={lossConfirmationOpen} onClose={() => setLossConfirmationOpen(false)} title="This sale will be at a loss" width="max-w-md">
+        <div className="p-5">
+          <div className="mb-4 flex items-start gap-3 rounded-xl border border-[#f0c9c1] bg-[#fff3f0] p-3.5 text-[#8e3d31]">
+            <TriangleAlert size={19} className="mt-0.5 shrink-0" />
+            <p className="text-[12px] leading-relaxed">After applying the discount, the amount charged is lower than the recorded cost of the items. Confirm only if you intend to accept this loss.</p>
+          </div>
+          <div className="space-y-2 rounded-lg bg-[#f7f8f5] p-3.5 text-[12px]">
+            <div className="flex justify-between text-[#46584c]"><span>Items' estimated cost</span><b>{money(estimatedCost, cur)}</b></div>
+            <div className="flex justify-between text-[#46584c]"><span>Bill after discount</span><b>{money(total, cur)}</b></div>
+            <div className="flex justify-between border-t border-line pt-2 font-bold text-[#963f32]"><span>Estimated loss</span><span>{money(estimatedLoss, cur)}</span></div>
+          </div>
+          <p className="mt-2 text-[10px] text-muted">This estimate uses the unit costs saved in Inventory.</p>
+          <div className="mt-5 flex justify-end gap-2">
+            <button type="button" className="btn-secondary" onClick={() => setLossConfirmationOpen(false)}>Go back</button>
+            <button type="button" className="inline-flex items-center justify-center gap-1.5 rounded-[9px] bg-[#a94738] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-[#8e3d31]" onClick={confirmLossSale}>Confirm sale anyway</button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

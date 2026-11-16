@@ -1,7 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useStore } from '@/lib/store';
 import { money, dateLabel } from '@/lib/format';
-import { totals } from '@/lib/calc';
 import { PageHead, SummaryBox, Panel, EmptyState, Badge, Callout } from '@/components/ui';
 import { ContactModal } from '@/components/ContactModal';
 import { Modal } from '@/components/Modal';
@@ -13,10 +12,15 @@ export function Contacts() {
   const [purchaseHistoryContact, setPurchaseHistoryContact] = useState<(typeof data.contacts)[number] | null>(null);
   const [query, setQuery] = useState('');
   const cur = data.settings.currency;
-  const t = useMemo(() => totals(data), [data]);
-  const customerCount = data.contacts.filter((x) => x.type === 'Customer').length;
-  const supplierCount = data.contacts.filter((x) => x.type === 'Supplier').length;
-  const filtered = data.contacts.filter((c) => `${c.name} ${c.phone} ${c.type}`.toLowerCase().includes(query.toLowerCase()));
+  const customers = data.contacts.filter((contact) => contact.type === 'Customer');
+  const customerCount = customers.length;
+  const customersDue = customers.filter((contact) => contact.balanceType === 'They owe me').reduce((sum, contact) => sum + contact.balance, 0);
+  const collectionCustomers = customers.filter((contact) => contact.balanceType === 'They owe me' && contact.balance > 0).sort((a, b) => b.balance - a.balance);
+  const customerSales = data.transactions.filter((transaction) => transaction.type === 'Sale' && (
+    (transaction.contactId != null && customers.some((customer) => customer.id === transaction.contactId))
+    || (transaction.contactId == null && customers.filter((customer) => customer.name.trim().toLowerCase() === transaction.name.trim().toLowerCase()).length === 1)
+  )).reduce((sum, transaction) => sum + transaction.amount, 0);
+  const filtered = customers.filter((customer) => `${customer.name} ${customer.phone}`.toLowerCase().includes(query.toLowerCase()));
   const salesForContact = (contact: (typeof data.contacts)[number]) => data.transactions
     .filter((x) => x.type === 'Sale' && (x.contactId === contact.id || (x.contactId == null
       && data.contacts.filter((c) => c.type === 'Customer' && c.name.trim().toLowerCase() === contact.name.trim().toLowerCase()).length === 1
@@ -40,15 +44,15 @@ export function Contacts() {
   return (
     <div className="animate-fade">
       <PageHead
-        eyebrow="People you do business with"
-        title="Customers & suppliers"
-        subhead="Keep balances and relationships easy to follow."
-        action={<button className="btn-primary" onClick={() => setOpen(true)}><Plus size={15} /> Add a contact</button>}
+        eyebrow="Customer accounts and purchase history"
+        title="Customers"
+        subhead="Manage customer details, balances, and their purchase history."
+        action={<button className="btn-primary" onClick={() => setOpen(true)}><Plus size={15} /> Add customer</button>}
       />
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <SummaryBox label="Customers" value={String(customerCount)} />
-        <SummaryBox label="Suppliers" value={String(supplierCount)} />
-        <SummaryBox label="Total to collect" value={money(t.due, cur)} />
+        <SummaryBox label="Customer balances to collect" value={money(customersDue, cur)} />
+        <SummaryBox label="Recorded customer sales" value={money(customerSales, cur)} />
       </div>
       <Panel title="Top customers" subtitle="Ranked by recorded purchase value" className="mb-4">
         {topCustomers.length === 0 ? <EmptyState message="Customer purchase history will appear here after sales are recorded at the counter." /> : (
@@ -61,37 +65,57 @@ export function Contacts() {
           </div>
         )}
       </Panel>
+      <Panel title="Money to collect" subtitle="Customers with an outstanding balance" className="mb-4" action={<span className="rounded-full bg-[#fdeeec] px-2.5 py-1 text-[11px] font-bold text-[#963f32]">{money(customersDue, cur)} · {collectionCustomers.length}</span>}>
+        {collectionCustomers.length === 0 ? <EmptyState message="No customer balances are waiting to be collected." /> : (
+          <div className="grid gap-2.5 p-3 sm:grid-cols-2 xl:grid-cols-3">
+            {collectionCustomers.map((customer) => {
+              const link = reminderLink(customer);
+              return <div key={customer.id} className="rounded-xl border border-[#f0d4cf] bg-[#fff8f6] p-3.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0"><div className="truncate text-[12px] font-bold text-ink">{customer.name}</div><div className="mt-0.5 truncate text-[10px] text-muted">{customer.phone || 'No phone saved'}</div></div>
+                  <Badge tone="red">Owes you</Badge>
+                </div>
+                <div className="mt-3 text-[10px] font-semibold uppercase tracking-wide text-[#963f32]">Amount to collect</div>
+                <div className="font-display text-[20px] font-extrabold text-[#963f32]">{money(customer.balance, cur)}</div>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[#f0d4cf] pt-2.5">
+                  <button type="button" onClick={() => setPurchaseHistoryContact(customer)} className="inline-flex items-center gap-1 text-[10px] font-bold text-brand-700"><Receipt size={12} /> Purchase history</button>
+                  {link && <a href={link} target="_blank" rel="noopener" className="inline-flex items-center gap-1 text-[10px] font-bold text-[#963f32]">Reminder <ExternalLink size={11} /></a>}
+                </div>
+              </div>;
+            })}
+          </div>
+        )}
+      </Panel>
       <Panel
-        title="Business contacts"
-        subtitle="Customer and supplier balances"
+        title="Customer list"
+        subtitle="Saved customers and their balances"
         action={
           <div className="relative">
             <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#9aa49d]" />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a contact…" className="h-[34px] w-[130px] rounded-lg border border-line bg-white py-0 pl-7 pr-2.5 text-[11px] outline-none focus:border-brand-400 sm:w-[180px]" />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a customer…" className="h-[34px] w-[130px] rounded-lg border border-line bg-white py-0 pl-7 pr-2.5 text-[11px] outline-none focus:border-brand-400 sm:w-[180px]" />
           </div>
         }
       >
         <div className="overflow-x-auto">
           <table className="w-full border-collapse whitespace-nowrap">
             <thead>
-              <tr>{['Name', 'Type', 'Phone', 'Last activity', 'Balance', 'Purchase history', 'Reminder'].map((h, i) => (
+              <tr>{['Name', 'Phone', 'Last activity', 'Balance', 'Purchase history', 'Reminder'].map((h, i) => (
                 <th key={h} className={`px-[18px] py-3 text-[9px] font-bold uppercase tracking-wide text-[#98a199] ${i === 4 ? 'text-right' : 'text-left'}`}>{h}</th>
               ))}</tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={7}><EmptyState message="Add a customer or supplier to keep track of balances." /></td></tr>
+                <tr><td colSpan={6}><EmptyState message="Add a customer to start keeping track of balances and purchases." /></td></tr>
               ) : filtered.map((p) => {
                 const link = reminderLink(p);
                 return (
                   <tr key={p.id} className="border-t border-[#f0f2ee] transition hover:bg-[#fafbf9]">
                     <td className="px-[18px] py-3 text-[11px] font-semibold text-ink">{p.name}{p.notes && <div className="font-normal text-[9px] text-muted">{p.notes}</div>}</td>
-                    <td className="px-[18px] py-3"><Badge tone={p.type === 'Supplier' ? 'amber' : 'green'}>{p.type}</Badge></td>
                     <td className="px-[18px] py-3 text-[11px] text-[#59645e]">{p.phone || '—'}</td>
                     <td className="px-[18px] py-3 text-[11px] text-[#59645e]">{p.last || '—'}</td>
-                    <td className="px-[18px] py-3 text-right text-[11px] font-bold text-ink">{p.balanceType === 'I owe them' ? '−' : '+'} {money(p.balance, cur)}</td>
+                    <td className={`px-[18px] py-3 text-right text-[11px] font-bold ${p.balanceType === 'They owe me' && p.balance > 0 ? 'text-[#963f32]' : 'text-ink'}`}>{p.balanceType === 'I owe them' ? '−' : '+'} {money(p.balance, cur)}</td>
                     <td className="px-[18px] py-3">
-                      {p.type === 'Customer' && <button type="button" onClick={() => setPurchaseHistoryContact(p)} className="inline-flex items-center gap-1 text-[10px] font-bold text-brand-500"><Receipt size={12} /> View purchases</button>}
+                      <button type="button" onClick={() => setPurchaseHistoryContact(p)} className="inline-flex items-center gap-1 text-[10px] font-bold text-brand-500"><Receipt size={12} /> View purchases</button>
                     </td>
                     <td className="px-[18px] py-3">
                       {link ? (
@@ -106,7 +130,7 @@ export function Contacts() {
         </div>
       </Panel>
       <Callout><b className="text-brand">Customer history:</b> Saved customer profiles connect counter sales to their purchase history. Top customers are ranked by recorded sale value. Follow-up links open a prefilled message draft for you to review.</Callout>
-      <ContactModal open={open} onClose={() => setOpen(false)} />
+      <ContactModal open={open} onClose={() => setOpen(false)} initialType="Customer" fixedType />
       <Modal open={!!purchaseHistoryContact} onClose={() => setPurchaseHistoryContact(null)} title={`${purchaseHistoryContact?.name || 'Customer'} · Purchase history`} width="max-w-2xl">
         {purchaseHistoryContact && <div className="p-5">
           {purchaseHistoryContact.phone && <p className="mb-3 text-[11px] text-muted">Phone: <b className="text-ink">{purchaseHistoryContact.phone}</b></p>}

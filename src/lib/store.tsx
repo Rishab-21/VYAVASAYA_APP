@@ -65,6 +65,8 @@ interface PosInput {
   lines: { itemId: number; quantity: number }[];
   customerId: number | null;
   accountId: number | null;
+  discountAmount: number;
+  paidNow: number;
 }
 
 interface InvoiceInput {
@@ -500,7 +502,8 @@ export function StoreProvider({ children, scope = 'local' }: { children: ReactNo
   // ---- POS ----
   const posCheckout = useCallback((inp: PosInput): { ok: boolean; error?: string } => {
     if (!inp.lines.length) return { ok: false, error: 'Add an item before completing a sale.' };
-    if (!inp.accountId) return { ok: false, error: 'Choose a cash or bank account before checkout.' };
+    if (!Number.isFinite(inp.discountAmount) || inp.discountAmount < 0) return { ok: false, error: 'Enter a valid discount amount.' };
+    if (!Number.isFinite(inp.paidNow) || inp.paidNow < 0) return { ok: false, error: 'Enter a valid amount received.' };
     for (const l of inp.lines) {
       const it = data.items.find((x) => x.id === l.itemId);
       if (!it || !Number.isFinite(l.quantity) || l.quantity <= 0 || l.quantity > it.qty) return { ok: false, error: 'Stock changed. Review the cart before checkout.' };
@@ -512,7 +515,7 @@ export function StoreProvider({ children, scope = 'local' }: { children: ReactNo
       accounts: data.accounts.map((a) => ({ ...a })),
       contacts: data.contacts.map((c) => ({ ...c })),
     };
-    const lineItems = inp.lines.map((l) => {
+    const originalLineItems = inp.lines.map((l) => {
       const it = next.items.find((x) => x.id === l.itemId)!;
       it.qty = roundMoney(it.qty - l.quantity);
       return {
@@ -521,11 +524,23 @@ export function StoreProvider({ children, scope = 'local' }: { children: ReactNo
         costTotal: roundMoney(l.quantity * Number(it.cost || 0)),
       };
     });
-    const sum = roundMoney(lineItems.reduce((a, l) => a + l.quantity * l.unitPrice, 0));
-    const account = next.accounts.find((a) => a.id === inp.accountId)!;
-    account.balance = roundMoney(account.balance + sum);
+    const subtotal = roundMoney(originalLineItems.reduce((a, l) => a + l.quantity * l.unitPrice, 0));
+    if (inp.discountAmount > subtotal) return { ok: false, error: 'Discount cannot be greater than the bill subtotal.' };
+    const sum = roundMoney(subtotal - inp.discountAmount);
+    if (inp.paidNow > sum) return { ok: false, error: 'Amount received cannot be greater than the discounted bill total.' };
     const customer = inp.customerId ? next.contacts.find((c) => c.id === inp.customerId) : null;
+    if (inp.paidNow < sum && !customer) return { ok: false, error: 'Choose a saved customer before recording an unpaid balance.' };
+    const account = inp.paidNow > 0 && inp.accountId ? next.accounts.find((a) => a.id === inp.accountId) : null;
+    if (inp.paidNow > 0 && !account) return { ok: false, error: 'Choose the account where the payment was received.' };
+    const outstanding = roundMoney(sum - inp.paidNow);
+    const discountFactor = subtotal > 0 ? sum / subtotal : 1;
+    const lineItems = originalLineItems.map((line) => ({ ...line, unitPrice: line.unitPrice * discountFactor }));
+    if (account && inp.paidNow > 0) account.balance = roundMoney(account.balance + inp.paidNow);
     if (customer) customer.last = 'Today';
+    if (customer && outstanding > 0) {
+      customer.balanceType = 'They owe me';
+      customer.balance = roundMoney(customer.balance + outstanding);
+    }
     next.transactions.push({
       id: nextId(next.transactions),
       name: customer?.name || 'Walk-in customer',
@@ -533,9 +548,11 @@ export function StoreProvider({ children, scope = 'local' }: { children: ReactNo
       category: 'Retail sales',
       date: localDateKey(),
       amount: sum,
-      status: 'Paid',
-      paidAmount: sum,
-      accountId: account.id,
+      subtotal,
+      discountAmount: roundMoney(inp.discountAmount),
+      status: outstanding <= 0 ? 'Paid' : inp.paidNow > 0 ? 'Part-paid' : 'Due',
+      paidAmount: roundMoney(inp.paidNow),
+      accountId: account?.id ?? null,
       contactId: customer?.id ?? null,
       itemId: null,
       quantity: null,

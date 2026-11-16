@@ -22,8 +22,8 @@ export function Transactions() {
 
   const exportCSV = () => {
     const csv = toCSV([
-      ['Date', 'Type', 'Details', 'Category', 'Status', 'Amount', 'Paid'],
-      ...data.transactions.map((x) => [x.date, x.type, x.name, x.category, x.status, x.amount, x.paidAmount]),
+      ['Date', 'Type', 'Details', 'Category', 'Status', 'Subtotal', 'Discount', 'Amount due', 'Paid', 'Remaining'],
+      ...data.transactions.map((x) => [x.date, x.type, x.name, x.category, x.status, x.subtotal ?? x.amount, x.discountAmount ?? 0, x.amount, x.paidAmount, Math.max(0, x.amount - x.paidAmount)]),
     ]);
     downloadFile(csv, 'vyavasya-transactions.csv', 'text/csv');
     toast('Transactions exported');
@@ -115,7 +115,12 @@ export function Transactions() {
           </Panel>
           <div className="mt-3 flex flex-wrap items-end justify-between gap-3 rounded-lg bg-[#f7f8f5] p-3.5">
             <div className="text-[10px] text-muted">{selectedTransaction.accountId ? 'Payment account: ' + (data.accounts.find((account) => account.id === selectedTransaction.accountId)?.name || 'Account') : 'No payment account recorded'}{selectedTransaction.notes ? <div className="mt-1 text-ink">Note: {selectedTransaction.notes}</div> : null}</div>
-            <div className="text-right"><div className="text-[10px] text-muted">Total amount</div><div className="font-display text-[20px] font-bold text-ink">{money(selectedTransaction.amount, cur)}</div><div className="text-[10px] text-muted">Paid {money(selectedTransaction.paidAmount, cur)}</div></div>
+            <div className="text-right">
+              {selectedTransaction.discountAmount ? <><div className="text-[10px] text-muted">Subtotal {money(selectedTransaction.subtotal ?? (selectedTransaction.amount + selectedTransaction.discountAmount), cur)}</div><div className="text-[10px] font-semibold text-[#87500a]">Discount − {money(selectedTransaction.discountAmount, cur)}</div></> : null}
+              <div className="mt-1 text-[10px] text-muted">Bill total</div><div className="font-display text-[20px] font-bold text-ink">{money(selectedTransaction.amount, cur)}</div>
+              <div className="text-[10px] text-muted">Paid {money(selectedTransaction.paidAmount, cur)}</div>
+              {selectedTransaction.amount > selectedTransaction.paidAmount && <div className="text-[10px] font-bold text-danger">Due {money(selectedTransaction.amount - selectedTransaction.paidAmount, cur)}</div>}
+            </div>
           </div>
         </div>}
       </Modal>
