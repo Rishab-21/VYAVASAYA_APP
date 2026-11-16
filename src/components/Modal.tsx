@@ -25,21 +25,24 @@ export function Modal({ open, onClose, title, children, width = 'max-w-lg' }: Mo
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[#15251f]/85 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-[#15251f]/85 p-2 backdrop-blur-sm sm:p-4"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className={`animate-modal w-full ${width} overflow-hidden rounded-2xl bg-white shadow-[0_20px_70px_rgba(0,0,0,0.25)]`}>
-        <div className="flex items-center justify-between border-b border-line px-5 py-4">
+      <div className={`animate-modal flex max-h-[calc(100vh-1rem)] w-full min-h-0 flex-col ${width} overflow-hidden rounded-2xl bg-white shadow-[0_20px_70px_rgba(0,0,0,0.25)] sm:max-h-[calc(100vh-2rem)]`}>
+        <div className="flex shrink-0 items-center justify-between border-b border-line bg-white px-5 py-4">
           <h2 className="text-[17px] font-bold font-display">{title}</h2>
           <button
             onClick={onClose}
-            className="grid h-8 w-8 place-items-center rounded-lg bg-[#f3f5f2] text-[#59665d] transition hover:bg-[#e8ebe5]"
-            aria-label="Close"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#f3f5f2] text-[#59665d] transition hover:bg-[#e8ebe5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500"
+            aria-label="Close dialog"
+            title="Close"
           >
             <X size={17} />
           </button>
         </div>
-        {children}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          {children}
+        </div>
       </div>
     </div>
   );

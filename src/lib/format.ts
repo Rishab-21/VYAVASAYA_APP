@@ -1,4 +1,21 @@
 import type { Currency } from './types';
+import DateConverter from '@remotemerge/nepali-date-converter';
+
+export type Calendar = 'AD' | 'BS';
+const nepaliMonths = ['बैशाख', 'जेठ', 'असार', 'साउन', 'भदौ', 'असोज', 'कात्तिक', 'मंसिर', 'पुस', 'माघ', 'फागुन', 'चैत'];
+const nepaliDigits = (value: number) => String(value).replace(/\d/g, (digit) => '०१२३४५६७८९'[Number(digit)]);
+
+function bsParts(date: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  try { return new DateConverter(date).toBs(); } catch { return null; }
+}
+
+function bsDate(date: string, includeYear: boolean): string | null {
+  const parts = bsParts(date);
+  if (!parts) return null;
+  const formatted = `${nepaliDigits(parts.date)} ${nepaliMonths[parts.month - 1]}${includeYear ? ` ${nepaliDigits(parts.year)}` : ''} (वि.सं.)`;
+  return formatted;
+}
 
 export function roundMoney(n: number): number {
   return Math.round((Number(n || 0) + Number.EPSILON) * 100) / 100;
@@ -15,14 +32,21 @@ export function localDateKey(d: Date = new Date()): string {
   return x.toISOString().slice(0, 10);
 }
 
-export function dateLabel(d: string): string {
+export function dateLabel(d: string, calendar: Calendar = 'AD'): string {
   if (!d) return '—';
+  if (calendar === 'BS') return bsDate(d, false) || `${d} (AD)`;
   const dt = new Date(d + 'T00:00:00');
   return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
 }
 
-export function dateLong(d: string): string {
+export function dateLong(d: string, calendar: Calendar = 'AD'): string {
   if (!d) return '—';
+  if (calendar === 'BS') {
+    const bs = bsDate(d, true);
+    if (!bs) return `${d} (AD)`;
+    const weekday = new Date(`${d}T00:00:00`).toLocaleDateString('ne-NP', { weekday: 'long' });
+    return `${weekday}, ${bs}`;
+  }
   const dt = new Date(d + 'T00:00:00');
   return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
@@ -33,7 +57,8 @@ export function greeting(): string {
   return `Good ${part}`;
 }
 
-export function todayLong(): string {
+export function todayLong(calendar: Calendar = 'AD'): string {
+  if (calendar === 'BS') return dateLong(localDateKey(), 'BS');
   return new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 

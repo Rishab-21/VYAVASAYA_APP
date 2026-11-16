@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Modal, Field } from './Modal';
 import { useStore } from '@/lib/store';
-import { localDateKey } from '@/lib/format';
+import { localDateKey, dateLong } from '@/lib/format';
 import type { DocKind, InvoiceStatus } from '@/lib/types';
 import { Plus, Trash2 } from 'lucide-react';
 
@@ -57,8 +57,8 @@ export function InvoiceModal({ open, onClose }: { open: boolean; onClose: () => 
             <input className="field-input mt-1.5" value={contactName} onChange={(e) => setContactName(e.target.value)} list="invCustomers" required placeholder="Customer or walk-in" />
             <datalist id="invCustomers">{data.contacts.filter((p) => p.type === 'Customer').map((p) => <option key={p.id} value={p.name} />)}</datalist>
           </Field></div>
-          <Field label="Issue date"><input className="field-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} required /></Field>
-          <Field label="Due / valid until"><input className="field-input" type="date" value={due} onChange={(e) => setDue(e.target.value)} /></Field>
+          <Field label="Issue date (AD picker)"><input className="field-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />{data.settings.calendar === 'BS' && <div className="mt-1 text-[10px] text-muted">BS: {dateLong(date, 'BS')}</div>}</Field>
+          <Field label="Due / valid until (AD picker)"><input className="field-input" type="date" value={due} onChange={(e) => setDue(e.target.value)} />{data.settings.calendar === 'BS' && <div className="mt-1 text-[10px] text-muted">BS: {dateLong(due, 'BS')}</div>}</Field>
 
           {/* Line items */}
           <div className="col-span-full">

@@ -54,8 +54,8 @@ export function Invoices() {
                   <td className="px-[18px] py-3 text-[11px] font-bold text-brand">{x.ref}</td>
                   <td className="px-[18px] py-3 text-[11px] font-semibold text-ink">{x.contactName}</td>
                   <td className="px-[18px] py-3 text-[11px] text-[#59645e]">{x.kind}</td>
-                  <td className="px-[18px] py-3 text-[11px] text-[#59645e]">{dateLabel(x.date)}</td>
-                  <td className="px-[18px] py-3 text-[11px] text-[#59645e]">{dateLabel(x.due)}</td>
+                  <td className="px-[18px] py-3 text-[11px] text-[#59645e]">{dateLabel(x.date, data.settings.calendar)}</td>
+                  <td className="px-[18px] py-3 text-[11px] text-[#59645e]">{dateLabel(x.due, data.settings.calendar)}</td>
                   <td className="px-[18px] py-3"><Badge tone={statusTone(x.status)}>{x.status}</Badge></td>
                   <td className="px-[18px] py-3 text-right text-[11px] font-bold text-ink">{money(x.amount, cur)}</td>
                   <td className="px-[18px] py-3">
@@ -92,8 +92,8 @@ export function Invoices() {
             <div className="grid grid-cols-2 gap-4 py-4 text-[11px]">
               <div><div className="text-muted">Bill to</div><div className="font-bold text-ink">{printInv.contactName}</div></div>
               <div className="text-right">
-                <div className="text-muted">Issue date: <b className="text-ink">{dateLong(printInv.date)}</b></div>
-                <div className="text-muted">Due date: <b className="text-ink">{dateLong(printInv.due)}</b></div>
+                <div className="text-muted">Issue date: <b className="text-ink">{dateLong(printInv.date, data.settings.calendar)}</b></div>
+                <div className="text-muted">Due date: <b className="text-ink">{dateLong(printInv.due, data.settings.calendar)}</b></div>
               </div>
             </div>
             <table className="w-full border-collapse text-[11px]">

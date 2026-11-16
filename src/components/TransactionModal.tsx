@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Modal, Field } from './Modal';
 import { useStore } from '@/lib/store';
 import type { TxnType, TxnStatus } from '@/lib/types';
-import { localDateKey } from '@/lib/format';
+import { localDateKey, dateLong } from '@/lib/format';
 
 interface Props {
   open: boolean;
@@ -103,8 +103,9 @@ export function TransactionModal({ open, onClose, initialType = 'Sale' }: Props)
         <Field label="Total amount">
           <input className="field-input" value={amount} onChange={(e) => setAmount(e.target.value)} required type="number" min="0.01" step="0.01" placeholder="0.00" />
         </Field>
-        <Field label="Date">
+        <Field label="Date (AD picker)">
           <input className="field-input" value={date} onChange={(e) => setDate(e.target.value)} required type="date" />
+          {data.settings.calendar === 'BS' && <div className="mt-1 text-[10px] text-muted">BS: {dateLong(date, 'BS')}</div>}
         </Field>
         <Field label="Category">
           <select className="field-select" value={category} onChange={(e) => setCategory(e.target.value)}>

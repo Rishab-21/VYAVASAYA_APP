@@ -45,17 +45,17 @@ export function Dashboard({ onNavigate }: { onNavigate: (p: PageId) => void }) {
   return (
     <div className="min-w-0">
       <PageHead
-        eyebrow={todayLong()}
+        eyebrow={todayLong(data.settings.calendar)}
         title={dashboardTitle}
         subhead="Here's how your business is doing this month."
         action={<button className="btn-primary" onClick={() => { setTxnType('Sale'); setTxnOpen(true); }}><Plus size={15} /> Add transaction</button>}
       />
 
       <div className="mb-4.5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
-        <StatCard label="Sales this month" icon={<TrendingUp size={14} />} value={money(t.sales, cur)} foot={<><span className="text-[#3c9770]">↗</span> from recorded sales</>} />
-        <StatCard label="Money to collect" icon={<ArrowRightLeft size={14} />} value={money(t.due, cur)} foot={<>From <b className="text-[#59645e]">{dueCount}</b> customer accounts</>} />
-        <StatCard label="Expenses" icon={<TrendingDown size={14} />} value={money(t.expenses, cur)} foot="Your recorded business costs" />
-        <StatCard label="Items running low" icon={<Package size={14} />} value={`${t.low} item${t.low === 1 ? '' : 's'}`} foot="Review stock before your next order" />
+        <StatCard accent="green" label="Sales this month" icon={<TrendingUp size={14} />} value={money(t.sales, cur)} foot={<><span className="text-[#3c9770]">↗</span> from recorded sales</>} />
+        <StatCard accent="amber" label="Money to collect" icon={<ArrowRightLeft size={14} />} value={money(t.due, cur)} foot={<>From <b className="text-[#59645e]">{dueCount}</b> customer accounts</>} />
+        <StatCard accent="coral" label="Expenses" icon={<TrendingDown size={14} />} value={money(t.expenses, cur)} foot="Your recorded business costs" />
+        <StatCard accent="blue" label="Items running low" icon={<Package size={14} />} value={`${t.low} item${t.low === 1 ? '' : 's'}`} foot="Review stock before your next order" />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(260px,0.85fr)]">
@@ -72,9 +72,9 @@ export function Dashboard({ onNavigate }: { onNavigate: (p: PageId) => void }) {
                   <button
                     key={q.label}
                     onClick={() => { setTxnType(q.type); setTxnOpen(true); }}
-                    className="rounded-[10px] border border-line bg-white p-3 text-left transition hover:border-brand-300 hover:bg-[#fbfdfb]"
+                    className={`rounded-[10px] border border-line bg-white p-3 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${q.type === 'Sale' ? 'hover:border-[#9bcba7]' : q.type === 'Expense' ? 'hover:border-[#e8b0a5]' : q.type === 'Purchase' ? 'hover:border-[#e6c88b]' : 'hover:border-[#a8c2e6]'}`}
                   >
-                    <span className="mb-2 grid h-[27px] w-[27px] place-items-center rounded-lg bg-brand-100 text-brand"><Icon size={14} /></span>
+                    <span className={`mb-2 grid h-[27px] w-[27px] place-items-center rounded-lg ${q.type === 'Sale' ? 'bg-[#e8f4e9] text-[#28794c]' : q.type === 'Expense' ? 'bg-[#fff0ec] text-[#b95242]' : q.type === 'Purchase' ? 'bg-[#fff2da] text-[#a96b14]' : 'bg-[#edf3ff] text-[#426da8]'}`}><Icon size={14} /></span>
                     <span className="block text-[11px] font-bold text-ink">{q.label}</span>
                     <span className="mt-0.5 block text-[9px] text-muted">{q.sub}</span>
                   </button>
@@ -107,7 +107,7 @@ export function Dashboard({ onNavigate }: { onNavigate: (p: PageId) => void }) {
                   <tr key={x.id} className="border-t border-[#f0f2ee]">
                     <td className="px-[18px] py-3 text-[11px] font-semibold text-ink">{x.name}</td>
                     <td className="px-[18px] py-3 text-[11px] text-[#59645e]">{x.category || x.type}</td>
-                    <td className="px-[18px] py-3 text-[11px] text-[#59645e]">{dateLabel(x.date)}</td>
+                    <td className="px-[18px] py-3 text-[11px] text-[#59645e]">{dateLabel(x.date, data.settings.calendar)}</td>
                     <td className="px-[18px] py-3">
                       <span className={`badge ${statusTone(x.status) === 'green' ? 'badge-green' : 'badge-amber'}`}>{x.status}</span>
                     </td>

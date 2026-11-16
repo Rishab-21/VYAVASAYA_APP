@@ -30,44 +30,78 @@ export function Inventory() {
     toast('Inventory exported');
   };
 
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const downloadTemplate = async () => {
+    const XLSX = await import('xlsx');
+    const headers = ['Name', 'SKU', 'Category', 'Quantity', 'Unit', 'Reorder level', 'Unit cost', 'Retail price', 'Wholesale price'];
+    const sheet = XLSX.utils.aoa_to_sheet([headers]);
+    sheet['!cols'] = headers.map((header) => ({ wch: Math.max(header.length + 3, 16) }));
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, sheet, 'Inventory');
+    XLSX.writeFile(workbook, 'vyavasaya-inventory-template.xlsx');
+  };
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const rows = parseCSV(String(reader.result));
-        if (!rows.length) { toast('Could not read this CSV file.'); return; }
-        const header = rows[0].map((x) => x.trim().toLowerCase());
-        const hasHeader = header.some((x) => ['name', 'item', 'product'].includes(x));
-        const dataRows = hasHeader ? rows.slice(1) : rows;
-        const get = (c: string[], idx: number, row: string[]) => {
-          const ix = hasHeader ? header.findIndex((h) => c.includes(h)) : idx;
-          return ix < 0 ? '' : String(row[ix] ?? '').trim();
-        };
-        const previewRows: PreviewRow[] = dataRows.map((row) => {
-          const name = get(['name', 'item', 'product'], 0, row);
-          const category = get(['category'], 1, row) || 'Imported';
-          const qty = Number(get(['quantity', 'qty', 'stock'], 2, row));
-          const cost = Number(get(['cost', 'unit cost', 'purchase price'], 3, row));
-          const retail = Number(get(['retail', 'retail price', 'sale price'], 4, row));
-          const sku = get(['sku', 'barcode', 'code'], 5, row);
-          const unit = get(['unit', 'units', 'uom'], 8, row) || 'pcs';
-          let error = '';
-          if (!name) error = 'Missing name';
-          else if (!Number.isFinite(qty) || qty < 0) error = 'Invalid quantity';
-          else if (!Number.isFinite(cost) || cost < 0) error = 'Invalid cost';
-          else if (!Number.isFinite(retail) || retail < 0) error = 'Invalid retail price';
-          else if (sku && data.items.some((x) => String(x.sku || '').toLowerCase() === sku.toLowerCase())) error = 'Duplicate SKU';
-          return { item: { name, sku, category, qty, cost, retail, unit, reorder: 5, wholesale: 0, emoji: '📦' }, valid: !error, error };
-        });
-        setPreview(previewRows);
-      } catch {
-        toast('Could not read this CSV. Use columns: name, category, quantity, cost, retail price, sku.');
-      }
-    };
-    reader.readAsText(f);
     e.target.value = '';
+    try {
+      const buffer = await f.arrayBuffer();
+      const isCsv = f.name.toLowerCase().endsWith('.csv');
+      let rawRows: unknown[][];
+      if (isCsv) {
+        rawRows = parseCSV(new TextDecoder().decode(buffer));
+      } else {
+        const XLSX = await import('xlsx');
+        const workbook = XLSX.read(buffer, { type: 'array' });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        rawRows = firstSheet ? XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '', raw: false }) as unknown[][] : [];
+      }
+      if (!rawRows.length) { toast('This file is empty. Add a header row and inventory items, then try again.'); return; }
+
+      const normalize = (value: unknown) => String(value ?? '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+      const aliases: Record<string, string[]> = {
+        name: ['name', 'item', 'itemname', 'product', 'productname', 'description'],
+        sku: ['sku', 'barcode', 'code', 'itemcode', 'productcode'],
+        category: ['category', 'type', 'group'],
+        qty: ['quantity', 'qty', 'stock', 'instock', 'quantityinstock', 'openingstock'],
+        unit: ['unit', 'units', 'uom', 'unitofmeasure', 'measure'],
+        reorder: ['reorder', 'reorderlevel', 'reorderwhenbelow', 'minimumstock', 'lowstocklevel'],
+        cost: ['cost', 'unitcost', 'purchaseprice', 'buyingprice', 'costprice'],
+        retail: ['retail', 'retailprice', 'saleprice', 'sellingprice', 'price'],
+        wholesale: ['wholesale', 'wholesaleprice'],
+      };
+      const header = rawRows[0].map(normalize);
+      const hasHeader = header.some((column) => Object.values(aliases).some((names) => names.includes(column)));
+      const dataRows = (hasHeader ? rawRows.slice(1) : rawRows).filter((row) => row.some((cell) => String(cell ?? '').trim()));
+      const fallbackOrder = ['name', 'sku', 'category', 'qty', 'unit', 'reorder', 'cost', 'retail', 'wholesale'];
+      const get = (field: string, row: unknown[]) => {
+        const ix = hasHeader ? header.findIndex((column) => aliases[field].includes(column)) : fallbackOrder.indexOf(field);
+        return ix < 0 ? '' : String(row[ix] ?? '').trim();
+      };
+      const seenSkus = new Set(data.items.map((item) => String(item.sku || '').trim().toLowerCase()).filter(Boolean));
+      const previewRows: PreviewRow[] = dataRows.map((row) => {
+        const name = get('name', row);
+        const sku = get('sku', row);
+        const category = get('category', row) || 'Imported';
+        const unit = get('unit', row) || 'pcs';
+        const parseNumber = (value: string, fallback: number) => value === '' ? fallback : Number(value.replace(/,/g, ''));
+        const qty = parseNumber(get('qty', row), 0);
+        const reorder = parseNumber(get('reorder', row), 5);
+        const cost = parseNumber(get('cost', row), 0);
+        const retail = parseNumber(get('retail', row), 0);
+        const wholesale = parseNumber(get('wholesale', row), 0);
+        let error = '';
+        if (!name) error = 'Missing item name';
+        else if (![qty, reorder, cost, retail, wholesale].every(Number.isFinite) || [qty, reorder, cost, retail, wholesale].some((value) => value < 0)) error = 'Check quantity and price values';
+        else if (sku && seenSkus.has(sku.toLowerCase())) error = 'SKU already exists';
+        if (sku && !error) seenSkus.add(sku.toLowerCase());
+        return { item: { name, sku, category, qty, reorder, cost, retail, wholesale, unit, emoji: '📦' }, valid: !error, error };
+      });
+      if (!previewRows.length) { toast('No inventory rows found below the header.'); return; }
+      setPreview(previewRows);
+    } catch {
+      toast('Could not read this file. Please use an .xlsx, .xls, or .csv inventory sheet.');
+    }
   };
 
   const confirmImport = () => {
@@ -77,8 +111,8 @@ export function Inventory() {
     const items: Item[] = valid.map((r) => ({
       id: nextId(data.items),
       name: r.item.name!, sku: r.item.sku || '', category: r.item.category || 'Imported',
-      qty: r.item.qty || 0, reorder: r.item.reorder || 5, cost: r.item.cost || 0,
-      retail: r.item.retail || 0, wholesale: r.item.wholesale || 0, emoji: '📦',
+      qty: r.item.qty ?? 0, reorder: r.item.reorder ?? 5, cost: r.item.cost ?? 0,
+      retail: r.item.retail ?? 0, wholesale: r.item.wholesale ?? 0, emoji: r.item.emoji || '📦',
       unit: r.item.unit || 'pcs',
     }));
     importItems(items);
@@ -95,14 +129,15 @@ export function Inventory() {
         title="Inventory"
         subhead="Track your items and spot stock that needs attention."
         action={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             <button className="btn-secondary" onClick={exportCSV}><Download size={14} /> Export</button>
-            <button className="btn-secondary" onClick={() => fileRef.current?.click()}><Upload size={14} /> Import CSV</button>
+            <button className="btn-secondary" onClick={downloadTemplate}><Download size={14} /> Template</button>
+            <button className="btn-secondary" onClick={() => fileRef.current?.click()}><Upload size={14} /> Import Excel / CSV</button>
             <button className="btn-primary" onClick={() => setOpen(true)}><Plus size={15} /> Add an item</button>
           </div>
         }
       />
-      <input ref={fileRef} type="file" accept=".csv,text/csv" hidden onChange={handleFile} />
+      <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" hidden onChange={handleFile} />
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <SummaryBox label="Items tracked" value={String(data.items.length)} />
         <SummaryBox label="Stock value" value={money(t.stockValue, cur)} />
@@ -141,7 +176,7 @@ export function Inventory() {
                     <span className="mr-2 inline-grid h-8 w-8 translate-y-2 place-items-center overflow-hidden rounded-md bg-[#f5f4ed] align-middle text-[17px]">
                       {x.photo ? <img src={x.photo} alt="" loading="lazy" className="h-full w-full object-cover" /> : x.emoji || '📦'}
                     </span>{x.name}
-                    <span className="block text-[9px] font-normal text-muted">{x.sku || 'No SKU'}</span>
+                    {x.sku && <span className="block text-[9px] font-normal text-muted">{x.sku}</span>}
                   </td>
                   <td className="px-[18px] py-3 text-[11px] text-[#59645e]">{x.category}</td>
                   <td className="px-[18px] py-3 text-right text-[11px] font-bold text-ink">{x.qty} {x.unit || 'pcs'}</td>
@@ -162,17 +197,17 @@ export function Inventory() {
         </div>
       </Panel>
 
-      {/* CSV import preview modal */}
-      <Modal open={!!preview} onClose={() => setPreview(null)} title="Preview CSV import" width="max-w-2xl">
+      {/* Spreadsheet import preview modal */}
+      <Modal open={!!preview} onClose={() => setPreview(null)} title="Preview inventory import" width="max-w-2xl">
         <div className="p-5">
           <p className="mb-3 text-[12px] text-[#59645e]">
-            Review the rows below. Valid rows will be added; rows with errors are skipped.
+            Check the first worksheet below. Valid rows will be added; rows with errors are skipped. You can import Excel (.xlsx/.xls) or CSV files.
             <span className="ml-1 font-bold text-brand">{validCount} valid</span> of {preview?.length || 0}.
           </p>
           <div className="max-h-[320px] overflow-auto rounded-lg border border-line">
             <table className="w-full border-collapse whitespace-nowrap text-[11px]">
               <thead className="sticky top-0 bg-[#f7f8f5]">
-                <tr>{['Name', 'Category', 'Qty', 'Cost', 'Retail', 'SKU', 'Status'].map((h) => (
+                <tr>{['Name', 'Category', 'Qty', 'Unit', 'Cost', 'Retail', 'Wholesale', 'SKU', 'Status'].map((h) => (
                   <th key={h} className="px-3 py-2 text-left text-[9px] font-bold uppercase text-[#98a199]">{h}</th>
                 ))}</tr>
               </thead>
@@ -182,8 +217,10 @@ export function Inventory() {
                     <td className="px-3 py-2 font-semibold text-ink">{r.item.name || '—'}</td>
                     <td className="px-3 py-2 text-[#59645e]">{r.item.category}</td>
                     <td className="px-3 py-2 text-[#59645e]">{r.item.qty}</td>
+                    <td className="px-3 py-2 text-[#59645e]">{r.item.unit || 'pcs'}</td>
                     <td className="px-3 py-2 text-[#59645e]">{r.item.cost}</td>
                     <td className="px-3 py-2 text-[#59645e]">{r.item.retail}</td>
+                    <td className="px-3 py-2 text-[#59645e]">{r.item.wholesale || 0}</td>
                     <td className="px-3 py-2 text-[#59645e]">{r.item.sku || '—'}</td>
                     <td className="px-3 py-2">{r.valid ? <Badge tone="green">OK</Badge> : <Badge tone="red">{r.error}</Badge>}</td>
                   </tr>

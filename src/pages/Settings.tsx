@@ -120,8 +120,9 @@ export function Settings() {
             <Field label="Calendar display">
               <select className="field-select mt-1.5" value={calendar} onChange={(e) => setCalendar(e.target.value as 'AD' | 'BS')}>
                 <option value="AD">AD / Gregorian</option>
-                <option value="BS">Bikram Sambat (display preference)</option>
+                <option value="BS">Bikram Sambat (BS)</option>
               </select>
+              <p className="mt-1 text-[10px] text-muted">This changes dates shown across the app. Date pickers use AD and show the matching BS date; stored dates remain consistent for reports and syncing.</p>
             </Field>
             <Field label="Invoice prefix"><input className="field-input mt-1.5" value={invoicePrefix} onChange={(e) => setInvoicePrefix(e.target.value)} /></Field>
             <Field label="Fiscal year"><input className="field-input mt-1.5" value={fiscalYear} onChange={(e) => setFiscalYear(e.target.value)} /></Field>

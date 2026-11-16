@@ -1,5 +1,5 @@
 import type { AppData } from './types';
-import { roundMoney, localDateKey } from './format';
+import { roundMoney, localDateKey, dateLabel } from './format';
 
 export function monthKey(d = new Date()): string {
   return localDateKey(d).slice(0, 7);
@@ -46,7 +46,7 @@ export function sevenDaySeries(data: AppData): DaySeries[] {
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - n);
     days.push({
       key: localDateKey(d),
-      label: d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+      label: dateLabel(localDateKey(d), data.settings.calendar),
       sales: 0,
       expenses: 0,
     });

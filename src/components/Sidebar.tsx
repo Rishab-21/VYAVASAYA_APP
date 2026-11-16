@@ -32,27 +32,29 @@ interface SidebarProps {
 export function Sidebar({ page, onNavigate, open, onClose, onSignOut }: SidebarProps) {
   const { data, businesses, businessId, switchBusiness, addBusiness, toast } = useStore();
   const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [addingBusiness, setAddingBusiness] = useState(false);
+  const [newBusinessName, setNewBusinessName] = useState('');
 
   const initials = data.settings.owner.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase() || 'BO';
 
-  const handleSwitch = () => {
-    setSwitcherOpen(true);
-    const choices = businesses.map((b, i) => `${i + 1}. ${b.name}`).join('\n');
-    const pick = window.prompt(`Your business workspaces:\n${choices}\n\nType a number to switch, or type NEW to add one.`, '');
-    if (!pick) return;
-    if (pick.trim().toLowerCase() === 'new') {
-      const name = window.prompt('Name your new business:', 'My new business');
-      if (!name) return;
-      addBusiness(name.trim());
-      onNavigate('overview');
-      toast('Business workspace created');
-      return;
-    }
-    const idx = Number(pick) - 1;
-    if (!Number.isInteger(idx) || !businesses[idx]) { toast('Choose a listed number or type NEW'); return; }
-    switchBusiness(businesses[idx].id);
+  const chooseBusiness = (id: string) => {
+    switchBusiness(id);
+    setSwitcherOpen(false);
     onNavigate('overview');
-    toast('Business switched');
+    onClose();
+    if (id !== businessId) toast('Business switched');
+  };
+
+  const createBusiness = () => {
+    const name = newBusinessName.trim();
+    if (!name) { toast('Enter a name for this shop'); return; }
+    addBusiness(name);
+    setNewBusinessName('');
+    setAddingBusiness(false);
+    setSwitcherOpen(false);
+    onNavigate('overview');
+    onClose();
+    toast('New business added to your account');
   };
 
   return (
@@ -65,17 +67,52 @@ export function Sidebar({ page, onNavigate, open, onClose, onSignOut }: SidebarP
         </div>
 
         {/* business switcher */}
-        <button
-          onClick={handleSwitch}
-          className="mx-3 mb-4 flex items-center gap-2.5 rounded-xl border border-line px-3 py-3 text-left transition hover:bg-[#f7f8f5]"
-        >
-          <span className="grid h-[34px] w-[34px] place-items-center rounded-[9px] bg-[#f5eee3] text-[17px]"><Store size={17} className="text-[#a07d3a]" /></span>
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[12px] font-bold text-ink">{data.settings.businessName}</span>
-            <span className="block text-[11px] text-muted">Retail · {data.settings.country}</span>
-          </span>
-          <ChevronDown size={15} className="text-[#9aa49d]" />
-        </button>
+        <div className="relative mx-3 mb-4">
+          <button
+            onClick={() => { setSwitcherOpen((value) => !value); setAddingBusiness(false); }}
+            aria-expanded={switcherOpen}
+            aria-haspopup="true"
+            className="flex w-full items-center gap-2.5 rounded-xl border border-line px-3 py-3 text-left transition hover:bg-[#f7f8f5]"
+          >
+            <span className="grid h-[34px] w-[34px] place-items-center rounded-[9px] bg-[#f5eee3] text-[17px]"><Store size={17} className="text-[#a07d3a]" /></span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[12px] font-bold text-ink">{data.settings.businessName}</span>
+              <span className="block text-[11px] text-muted">{businesses.length} {businesses.length === 1 ? 'business' : 'businesses'} · {data.settings.country}</span>
+            </span>
+            <ChevronDown size={15} className={`text-[#68766d] transition-transform ${switcherOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {switcherOpen && (
+            <div className="absolute left-0 right-0 top-full z-[1001] mt-2 overflow-hidden rounded-xl border border-line bg-white p-2 shadow-[0_14px_35px_rgba(20,45,30,0.16)]">
+              <p className="px-2 pb-2 pt-1 text-[11px] font-semibold text-[#68766d]">Your businesses</p>
+              <div className="max-h-48 space-y-1 overflow-y-auto">
+                {businesses.map((business) => (
+                  <button key={business.id} onClick={() => chooseBusiness(business.id)} aria-current={business.id === businessId ? 'true' : undefined} className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2.5 text-left text-[13px] transition ${business.id === businessId ? 'bg-[#dceee2] font-bold text-[#164b39] shadow-[inset_3px_0_0_#1b5c45]' : 'font-medium text-[#45554b] hover:bg-[#f1f5f1]'}`}>
+                    <Store size={15} className={`shrink-0 ${business.id === businessId ? 'text-[#1b5c45]' : ''}`} />
+                    <span className="min-w-0 flex-1 truncate">{business.name}</span>
+                    {business.id === businessId && <span className="text-[10px] font-semibold">Open</span>}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-2 border-t border-line pt-2">
+                {addingBusiness ? (
+                  <form onSubmit={(event) => { event.preventDefault(); createBusiness(); }} className="space-y-2 p-1">
+                    <label htmlFor="new-business-name" className="block text-[11px] font-semibold text-[#45554b]">Shop or branch name</label>
+                    <input id="new-business-name" autoFocus maxLength={80} className="field-input" placeholder="e.g. D-Mart · Dhangadhi" value={newBusinessName} onChange={(event) => setNewBusinessName(event.target.value)} />
+                    <p className="text-[10px] leading-relaxed text-[#68766d]">Each shop gets its own sales, stock, customers, and reports under this account.</p>
+                    <div className="flex gap-2">
+                      <button type="button" className="btn-secondary flex-1" onClick={() => { setAddingBusiness(false); setNewBusinessName(''); }}>Cancel</button>
+                      <button type="submit" className="btn-primary flex-1"><Plus size={14} /> Add shop</button>
+                    </div>
+                  </form>
+                ) : (
+                  <button onClick={() => setAddingBusiness(true)} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2.5 text-left text-[13px] font-bold text-brand-700 transition hover:bg-brand-50">
+                    <Plus size={16} /> Add another business
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* nav */}
         <div className="px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-[1.2px] text-[#9aa49d]">Workspace</div>
@@ -88,7 +125,7 @@ export function Sidebar({ page, onNavigate, open, onClose, onSignOut }: SidebarP
                 key={n.id}
                 onClick={() => { onNavigate(n.id); onClose(); }}
                 className={`flex items-center gap-3 rounded-[9px] px-3 py-2.5 text-left text-[12px] transition ${
-                  active ? 'bg-brand-100 font-bold text-brand' : 'text-[#78827b] hover:bg-[#f7f8f5] hover:text-ink'
+                  active ? 'bg-[#dceee2] font-bold text-[#164b39] shadow-[inset_3px_0_0_#1b5c45]' : 'font-medium text-[#536359] hover:bg-[#f1f5f1] hover:text-ink'
                 }`}
               >
                 <Icon size={16} className={active ? 'text-brand' : 'text-[#9aa49d]'} />
@@ -100,7 +137,7 @@ export function Sidebar({ page, onNavigate, open, onClose, onSignOut }: SidebarP
           <button
             onClick={() => { onNavigate('settings'); onClose(); }}
             className={`flex items-center gap-3 rounded-[9px] px-3 py-2.5 text-left text-[12px] transition ${
-              page === 'settings' ? 'bg-brand-100 font-bold text-brand' : 'text-[#78827b] hover:bg-[#f7f8f5] hover:text-ink'
+              page === 'settings' ? 'bg-[#dceee2] font-bold text-[#164b39] shadow-[inset_3px_0_0_#1b5c45]' : 'font-medium text-[#536359] hover:bg-[#f1f5f1] hover:text-ink'
             }`}
           >
             <SettingsIcon size={16} className={page === 'settings' ? 'text-brand' : 'text-[#9aa49d]'} />

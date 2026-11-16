@@ -85,7 +85,7 @@ export function Transactions() {
                 <tr key={x.id} className="border-t border-[#f0f2ee] transition hover:bg-[#fafbf9]">
                   <td className="px-[18px] py-3 text-[11px] font-semibold text-ink">{x.name}</td>
                   <td className="px-[18px] py-3 text-[11px] text-[#59645e]">{x.category || x.type}</td>
-                  <td className="px-[18px] py-3 text-[11px] text-[#59645e]">{dateLabel(x.date)}</td>
+                  <td className="px-[18px] py-3 text-[11px] text-[#59645e]">{dateLabel(x.date, data.settings.calendar)}</td>
                   <td className="px-[18px] py-3"><Badge tone={statusTone(x.status)}>{x.status}</Badge></td>
                   <td className="px-[18px] py-3 text-right text-[11px] font-bold text-ink">{signed(x.type)} {money(x.amount, cur)}</td>
                   <td className="px-[18px] py-3 text-right">
@@ -104,7 +104,7 @@ export function Transactions() {
         {selectedTransaction && <div className="p-5">
           <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <SummaryBox label="Type" value={selectedTransaction.type} />
-            <SummaryBox label="Date" value={dateLabel(selectedTransaction.date)} />
+            <SummaryBox label="Date" value={dateLabel(selectedTransaction.date, data.settings.calendar)} />
             <SummaryBox label="Customer / details" value={selectedTransaction.name || 'Walk-in customer'} />
             <SummaryBox label="Status" value={selectedTransaction.status} />
           </div>

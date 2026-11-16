@@ -119,8 +119,9 @@ export function Reports() {
   const customerDue = agingRows.filter((x) => x.kind === 'Customer').reduce((sum, x) => sum + x.due, 0);
   const supplierDue = agingRows.filter((x) => x.kind === 'Supplier').reduce((sum, x) => sum + x.due, 0);
   const span = dateSpan(from, to);
-  const priorLabel = span ? `${dateLong(localDateKey(new Date(dateFromKey(from).getTime() - span * dayMs)))} – ${dateLong(localDateKey(new Date(dateFromKey(from).getTime() - dayMs)))}` : '';
-  const periodLabel = from && to ? (from === to ? dateLong(from) : `${dateLong(from)} – ${dateLong(to)}`) : `${from || 'All dates'} – ${to || 'Today'}`;
+  const calendar = data.settings.calendar;
+  const priorLabel = span ? `${dateLong(localDateKey(new Date(dateFromKey(from).getTime() - span * dayMs)), calendar)} – ${dateLong(localDateKey(new Date(dateFromKey(from).getTime() - dayMs)), calendar)}` : '';
+  const periodLabel = from && to ? (from === to ? dateLong(from, calendar) : `${dateLong(from, calendar)} – ${dateLong(to, calendar)}`) : `${from || 'All dates'} – ${to || 'Today'}`;
 
   const setPreset = (preset: 'today' | 'yesterday' | '7d' | '30d' | 'month') => {
     const end = dateFromKey(today);
@@ -181,8 +182,8 @@ export function Reports() {
 
       <div className="mb-4 rounded-xl border border-line bg-white px-4 py-3.5">
         <div className="flex flex-wrap items-end gap-3">
-          <div><label className="field-label">From date</label><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="field-input mt-1.5" /></div>
-          <div><label className="field-label">To date</label><input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="field-input mt-1.5" /></div>
+          <div><label className="field-label">From date (AD picker)</label><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="field-input mt-1.5" />{calendar === 'BS' && <div className="mt-1 text-[10px] text-muted">BS: {dateLong(from, calendar)}</div>}</div>
+          <div><label className="field-label">To date (AD picker)</label><input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="field-input mt-1.5" />{calendar === 'BS' && <div className="mt-1 text-[10px] text-muted">BS: {dateLong(to, calendar)}</div>}</div>
           <div className="flex flex-wrap gap-1.5 pb-px">
             {([['today', 'Today'], ['yesterday', 'Yesterday'], ['7d', '7 days'], ['30d', '30 days'], ['month', 'This month']] as const).map(([key, label]) => (
               <button key={key} className="btn-secondary !px-2.5 !py-2 !text-[10px]" onClick={() => setPreset(key)}>{label}</button>
@@ -242,7 +243,7 @@ export function Reports() {
         </div>
         <Panel title="Cash movement details" subtitle="Calculated from recorded paid amounts during the selected period">
           <div className="overflow-x-auto"><table className="w-full border-collapse whitespace-nowrap"><thead><tr>{['Date', 'Activity', 'Account', 'Recorded amount', 'Paid amount'].map((h, i) => <th key={h} className={`px-[18px] py-3 text-[9px] font-bold uppercase tracking-wide text-[#98a199] ${i > 2 ? 'text-right' : 'text-left'}`}>{h}</th>)}</tr></thead><tbody>
-            {rangeTransactions.filter((x) => x.paidAmount > 0).length === 0 ? <tr><td colSpan={5}><EmptyState message="No paid transaction amounts in this period." /></td></tr> : rangeTransactions.filter((x) => x.paidAmount > 0).map((x) => <tr key={x.id} className="border-t border-[#f0f2ee]"><td className="px-[18px] py-3 text-[11px] text-[#59645e]">{dateLong(x.date)}</td><td className="px-[18px] py-3 text-[11px] font-semibold text-ink">{x.type}: {x.name}</td><td className="px-[18px] py-3 text-[11px] text-[#59645e]">{data.accounts.find((a) => a.id === x.accountId)?.name || 'Not assigned'}</td><td className="px-[18px] py-3 text-right text-[11px] text-[#59645e]">{money(x.amount, cur)}</td><td className={`px-[18px] py-3 text-right text-[11px] font-bold ${signedType(x.type) ? 'text-[#3c9770]' : 'text-danger'}`}>{signedType(x.type) ? '+' : '−'} {money(x.paidAmount, cur)}</td></tr>)}
+            {rangeTransactions.filter((x) => x.paidAmount > 0).length === 0 ? <tr><td colSpan={5}><EmptyState message="No paid transaction amounts in this period." /></td></tr> : rangeTransactions.filter((x) => x.paidAmount > 0).map((x) => <tr key={x.id} className="border-t border-[#f0f2ee]"><td className="px-[18px] py-3 text-[11px] text-[#59645e]">{dateLong(x.date, calendar)}</td><td className="px-[18px] py-3 text-[11px] font-semibold text-ink">{x.type}: {x.name}</td><td className="px-[18px] py-3 text-[11px] text-[#59645e]">{data.accounts.find((a) => a.id === x.accountId)?.name || 'Not assigned'}</td><td className="px-[18px] py-3 text-right text-[11px] text-[#59645e]">{money(x.amount, cur)}</td><td className={`px-[18px] py-3 text-right text-[11px] font-bold ${signedType(x.type) ? 'text-[#3c9770]' : 'text-danger'}`}>{signedType(x.type) ? '+' : '−'} {money(x.paidAmount, cur)}</td></tr>)}
           </tbody></table></div>
         </Panel>
         <Callout>Cash movement is based on the transaction date and paid amount saved in Vyavasaya. It does not yet have separate payment dates or bank statement reconciliation.</Callout>
@@ -250,9 +251,9 @@ export function Reports() {
 
       {tab === 'balances' && <>
         <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3"><StatCard label="Customer balances" icon={<UsersRound size={14} />} value={money(customerDue, cur)} foot="Open recorded sales after estimated allocations" /><StatCard label="Supplier balances" icon={<Truck size={14} />} value={money(supplierDue, cur)} foot="Open recorded purchases and expenses" /><StatCard label="Total open transactions" icon={<Receipt size={14} />} value={String(agingRows.length)} foot="Individual recorded items still unpaid" /></div>
-        <Panel title="Open transaction balances" subtitle={`Estimated age from transaction date · as of ${dateLong(to || today)}`}>
+        <Panel title="Open transaction balances" subtitle={`Estimated age from transaction date · as of ${dateLong(to || today, calendar)}`}>
           <div className="overflow-x-auto"><table className="w-full border-collapse whitespace-nowrap"><thead><tr>{['Contact', 'Type', 'Recorded date', 'Age', 'Age band', 'Balance'].map((h, i) => <th key={h} className={`px-[18px] py-3 text-[9px] font-bold uppercase tracking-wide text-[#98a199] ${i === 5 ? 'text-right' : 'text-left'}`}>{h}</th>)}</tr></thead><tbody>
-            {agingRows.length === 0 ? <tr><td colSpan={6}><EmptyState message="No unpaid sales, purchases, or expenses were found in recorded transactions." /></td></tr> : agingRows.map((x, i) => <tr key={`${x.kind}-${x.name}-${x.date}-${i}`} className="border-t border-[#f0f2ee]"><td className="px-[18px] py-3 text-[11px] font-semibold text-ink">{x.name}</td><td className="px-[18px] py-3"><Badge tone={x.kind === 'Customer' ? 'green' : 'amber'}>{x.kind} owes</Badge></td><td className="px-[18px] py-3 text-[11px] text-[#59645e]">{dateLong(x.date)}</td><td className="px-[18px] py-3 text-[11px] text-[#59645e]">{x.age} days</td><td className="px-[18px] py-3 text-[11px] text-[#59645e]">{x.bucket}</td><td className="px-[18px] py-3 text-right text-[11px] font-bold text-ink">{money(x.due, cur)}</td></tr>)}
+            {agingRows.length === 0 ? <tr><td colSpan={6}><EmptyState message="No unpaid sales, purchases, or expenses were found in recorded transactions." /></td></tr> : agingRows.map((x, i) => <tr key={`${x.kind}-${x.name}-${x.date}-${i}`} className="border-t border-[#f0f2ee]"><td className="px-[18px] py-3 text-[11px] font-semibold text-ink">{x.name}</td><td className="px-[18px] py-3"><Badge tone={x.kind === 'Customer' ? 'green' : 'amber'}>{x.kind} owes</Badge></td><td className="px-[18px] py-3 text-[11px] text-[#59645e]">{dateLong(x.date, calendar)}</td><td className="px-[18px] py-3 text-[11px] text-[#59645e]">{x.age} days</td><td className="px-[18px] py-3 text-[11px] text-[#59645e]">{x.bucket}</td><td className="px-[18px] py-3 text-right text-[11px] font-bold text-ink">{money(x.due, cur)}</td></tr>)}
           </tbody></table></div>
         </Panel>
         <Callout>Payments are estimated against each contact’s oldest recorded open transaction because the app does not yet link a payment to a specific invoice. Opening balances and invoice due dates are not included in this aging estimate.</Callout>

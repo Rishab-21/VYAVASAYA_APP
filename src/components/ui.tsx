@@ -13,14 +13,21 @@ export function PageHead({ eyebrow, title, subhead, action }: { eyebrow?: string
   );
 }
 
-export function StatCard({ label, icon, value, foot, tone = 'default' }: {
+export function StatCard({ label, icon, value, foot, tone = 'default', accent = 'green' }: {
   label: string; icon: ReactNode; value: string; foot?: ReactNode; tone?: 'default' | 'positive' | 'negative';
+  accent?: 'green' | 'amber' | 'coral' | 'blue';
 }) {
+  const accentStyle = {
+    green: { stripe: 'border-t-[#4a9b6c]', icon: 'bg-[#e8f4e9] text-[#28794c]' },
+    amber: { stripe: 'border-t-[#e7a53c]', icon: 'bg-[#fff2da] text-[#a96b14]' },
+    coral: { stripe: 'border-t-[#e27b69]', icon: 'bg-[#fff0ec] text-[#b95242]' },
+    blue: { stripe: 'border-t-[#6492d2]', icon: 'bg-[#edf3ff] text-[#426da8]' },
+  }[accent];
   return (
-    <article className="card min-h-[126px] p-[18px]">
+    <article className={`card min-h-[126px] border-t-[3px] p-[18px] ${accentStyle.stripe}`}>
       <div className="flex items-center justify-between text-[11px] text-[#7c8880]">
         <span>{label}</span>
-        <span className="grid h-[29px] w-[29px] place-items-center rounded-[9px] bg-[#f3f5f1]">{icon}</span>
+        <span className={`grid h-[29px] w-[29px] place-items-center rounded-[9px] ${accentStyle.icon}`}>{icon}</span>
       </div>
       <div className="mb-1 mt-3 font-display text-[24px] font-bold tracking-tight text-ink">{value}</div>
       {foot && <div className={`text-[10px] ${tone === 'positive' ? 'text-[#3c9770]' : tone === 'negative' ? 'text-danger' : 'text-[#96a098]'}`}>{foot}</div>}

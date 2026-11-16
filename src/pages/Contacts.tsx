@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useStore } from '@/lib/store';
-import { money } from '@/lib/format';
+import { money, dateLabel } from '@/lib/format';
 import { totals } from '@/lib/calc';
 import { PageHead, SummaryBox, Panel, EmptyState, Badge, Callout } from '@/components/ui';
 import { ContactModal } from '@/components/ContactModal';
@@ -116,7 +116,7 @@ export function Contacts() {
           </div>
           <div className="max-h-[55vh] overflow-auto rounded-lg border border-line">
             <table className="w-full border-collapse whitespace-nowrap"><thead className="sticky top-0 bg-white"><tr>{['Date', 'Items', 'Payment account', 'Total'].map((h, i) => <th key={h} className={`px-3 py-2 text-[9px] font-bold uppercase tracking-wide text-[#98a199] ${i === 3 ? 'text-right' : 'text-left'}`}>{h}</th>)}</tr></thead><tbody>
-              {customerHistory.length === 0 ? <tr><td colSpan={4}><EmptyState message="No counter purchases are linked to this customer yet." /></td></tr> : customerHistory.map((sale) => <tr key={sale.id} className="border-t border-[#f0f2ee]"><td className="px-3 py-2.5 text-[10px] text-[#59645e]">{sale.date}</td><td className="max-w-[260px] truncate px-3 py-2.5 text-[10px] text-ink">{sale.lineItems?.length ? sale.lineItems.map((line) => `${line.quantity} ${line.unit || 'pcs'} ${line.name}`).join(', ') : sale.category}</td><td className="px-3 py-2.5 text-[10px] text-[#59645e]">{data.accounts.find((account) => account.id === sale.accountId)?.name || '—'}</td><td className="px-3 py-2.5 text-right text-[10px] font-bold text-ink">{money(sale.amount, cur)}</td></tr>)}
+              {customerHistory.length === 0 ? <tr><td colSpan={4}><EmptyState message="No counter purchases are linked to this customer yet." /></td></tr> : customerHistory.map((sale) => <tr key={sale.id} className="border-t border-[#f0f2ee]"><td className="px-3 py-2.5 text-[10px] text-[#59645e]">{dateLabel(sale.date, data.settings.calendar)}</td><td className="max-w-[260px] truncate px-3 py-2.5 text-[10px] text-ink">{sale.lineItems?.length ? sale.lineItems.map((line) => `${line.quantity} ${line.unit || 'pcs'} ${line.name}`).join(', ') : sale.category}</td><td className="px-3 py-2.5 text-[10px] text-[#59645e]">{data.accounts.find((account) => account.id === sale.accountId)?.name || '—'}</td><td className="px-3 py-2.5 text-right text-[10px] font-bold text-ink">{money(sale.amount, cur)}</td></tr>)}
             </tbody></table>
           </div>
         </div>}

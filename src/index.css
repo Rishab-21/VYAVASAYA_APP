@@ -7,7 +7,7 @@
 @layer base {
   :root {
     --ink: #1f3029;
-    --muted: #849089;
+    --muted: #4f6156;
     --line: #e8ebe5;
     --canvas: #f5f6f2;
     --green: #1b5c45;
@@ -23,9 +23,10 @@
   body {
     margin: 0;
     background: #f5f6f2;
-    color: #1f3029;
+    color: #1d2d24;
     font-family: 'DM Sans', system-ui, sans-serif;
-    font-size: 14px;
+    font-size: 15px;
+    font-weight: 500;
     -webkit-font-smoothing: antialiased;
   }
   h1, h2, h3, h4 {
@@ -53,6 +54,48 @@
   input, select, textarea {
     font-family: inherit;
   }
+}
+
+/* Improve readability across dense dashboard tables and supporting labels. */
+[class~="text-[9px]"] { font-size: 10px !important; }
+[class~="text-[10px]"] { font-size: 11px !important; }
+[class~="text-[11px]"] { font-size: 12px !important; }
+[class~="text-[12px]"] { font-size: 13px !important; }
+[class~="text-[13px]"] { font-size: 14px !important; }
+[class~="text-xs"] { font-size: 13px !important; }
+
+/* Bring frequently used secondary text closer to the main text contrast. */
+[class~="text-muted"],
+[class~="text-[#98a199]"],
+[class~="text-[#9aa49d]"],
+[class~="text-[#a7b0a8]"],
+[class~="text-[#8a958d]"],
+[class~="text-[#77837b]"],
+[class~="text-[#78827b]"],
+[class~="text-[#657168]"],
+[class~="text-[#849089]"] {
+  color: #4f6156 !important;
+  font-weight: 500;
+}
+
+/* Keep secondary copy readable while preserving the soft green visual style. */
+.text-muted { color: #4f6156 !important; font-weight: 500; }
+[class~="text-[#98a199]"], [class~="text-[#9aa49d]"], [class~="text-[#a7b0a8]"],
+[class~="text-[#8a958d]"], [class~="text-[#77837b]"], [class~="text-[#78827b]"],
+[class~="text-[#657168]"], [class~="text-[#849089]"], [class~="text-[#96a098]"],
+[class~="text-[#7c8880]"], [class~="text-[#59645e]"], [class~="text-[#617166]"],
+[class~="text-[#68766d]"] { color: #46584c !important; }
+
+.field-input::placeholder, input::placeholder, textarea::placeholder { color: #7a887e !important; opacity: 1; }
+.badge-green { color: #23633e !important; }
+.badge-amber { color: #87500a !important; }
+.badge-red { color: #963f32 !important; }
+.badge-neutral { color: #4f5d53 !important; }
+
+/* Make keyboard and touch focus as clear as the selected state. */
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 3px solid rgba(45, 128, 96, 0.32);
+  outline-offset: 2px;
 }
 
 @layer components {

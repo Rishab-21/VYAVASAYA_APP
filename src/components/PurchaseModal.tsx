@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Modal, Field } from './Modal';
 import { useStore } from '@/lib/store';
-import { localDateKey } from '@/lib/format';
+import { localDateKey, dateLong } from '@/lib/format';
 import type { PurchaseKind, PurchaseStatus } from '@/lib/types';
 import { Plus, Trash2 } from 'lucide-react';
 
@@ -59,7 +59,7 @@ export function PurchaseModal({ open, onClose }: { open: boolean; onClose: () =>
             <input className="field-input mt-1.5" value={contactName} onChange={(e) => setContactName(e.target.value)} list="purSuppliers" required placeholder="Supplier name" />
             <datalist id="purSuppliers">{data.contacts.filter((p) => p.type === 'Supplier').map((p) => <option key={p.id} value={p.name} />)}</datalist>
           </Field></div>
-          <Field label="Order date"><input className="field-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} required /></Field>
+          <Field label="Order date (AD picker)"><input className="field-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />{data.settings.calendar === 'BS' && <div className="mt-1 text-[10px] text-muted">BS: {dateLong(date, 'BS')}</div>}</Field>
 
           <div className="col-span-full">
             <div className="field-label mb-1.5">Line items</div>
