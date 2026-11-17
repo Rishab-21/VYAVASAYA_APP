@@ -2,8 +2,7 @@ import type { Currency } from './types';
 import DateConverter from '@remotemerge/nepali-date-converter';
 
 export type Calendar = 'AD' | 'BS';
-const nepaliMonths = ['बैशाख', 'जेठ', 'असार', 'साउन', 'भदौ', 'असोज', 'कात्तिक', 'मंसिर', 'पुस', 'माघ', 'फागुन', 'चैत'];
-const nepaliDigits = (value: number) => String(value).replace(/\d/g, (digit) => '०१२३४५६७८९'[Number(digit)]);
+const bsMonths = ['Baisakh', 'Jestha', 'Ashadh', 'Shrawan', 'Bhadra', 'Ashwin', 'Kartik', 'Mangsir', 'Poush', 'Magh', 'Falgun', 'Chaitra'];
 
 function bsParts(date: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
@@ -13,7 +12,9 @@ function bsParts(date: string) {
 function bsDate(date: string, includeYear: boolean): string | null {
   const parts = bsParts(date);
   if (!parts) return null;
-  const formatted = `${nepaliDigits(parts.date)} ${nepaliMonths[parts.month - 1]}${includeYear ? ` ${nepaliDigits(parts.year)}` : ''} (वि.सं.)`;
+  const month = bsMonths[parts.month - 1];
+  if (!month) return null;
+  const formatted = `${parts.date} ${month}${includeYear ? ` ${parts.year}` : ''}`;
   return formatted;
 }
 
@@ -44,7 +45,7 @@ export function dateLong(d: string, calendar: Calendar = 'AD'): string {
   if (calendar === 'BS') {
     const bs = bsDate(d, true);
     if (!bs) return `${d} (AD)`;
-    const weekday = new Date(`${d}T00:00:00`).toLocaleDateString('ne-NP', { weekday: 'long' });
+    const weekday = new Date(`${d}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'long' });
     return `${weekday}, ${bs}`;
   }
   const dt = new Date(d + 'T00:00:00');
