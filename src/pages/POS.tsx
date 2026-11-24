@@ -15,6 +15,7 @@ export function POS() {
   const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
   const [showCustomerForm, setShowCustomerForm] = useState(false);
   const [lossConfirmationOpen, setLossConfirmationOpen] = useState(false);
+  const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const [newCustomerName, setNewCustomerName] = useState('');
   const [newCustomerPhone, setNewCustomerPhone] = useState('');
   const [customerConsented, setCustomerConsented] = useState(false);
@@ -140,6 +141,7 @@ export function POS() {
     setDiscountType('amount');
     setDiscountValue('0');
     setPaidNowInput('');
+    setMobileCartOpen(false);
   };
 
   const checkout = () => {
@@ -152,47 +154,7 @@ export function POS() {
     completeSale();
   };
 
-  return (
-    <div className="animate-fade">
-      <PageHead
-        eyebrow="Fast checkout"
-        title="Counter / POS"
-        subhead="Add items to a sale and update stock when you check out."
-        action={<button className="btn-secondary" onClick={clearCart}><Trash2 size={14} /> Clear cart</button>}
-      />
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(300px,0.8fr)]">
-        {/* Products */}
-        <Panel
-          title="Shop items"
-          subtitle="Tap an item to add it to the current bill"
-          action={
-            <div className="relative">
-              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#9aa49d]" />
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name or SKU…" className="h-[34px] w-[120px] rounded-lg border border-line bg-white py-0 pl-7 pr-2.5 text-[11px] outline-none focus:border-brand-400 sm:w-[180px]" />
-            </div>
-          }
-        >
-          <div className="grid grid-cols-2 gap-2.5 p-3.5 sm:grid-cols-3 lg:grid-cols-3" style={{ minHeight: 260, alignContent: 'start' }}>
-            {products.length === 0 ? (
-              <div className="col-span-full"><EmptyState message="No matching items. Add inventory first." /></div>
-            ) : products.map((x) => (
-              <button
-                key={x.id} onClick={() => addToCart(x.id)} disabled={x.qty <= 0}
-                className="rounded-[11px] border border-line bg-white p-3 text-left transition hover:border-brand-300 hover:bg-[#fbfdfb] disabled:opacity-50"
-                style={{ minHeight: 150 }}
-              >
-                <div className="mb-2 grid aspect-[4/3] w-full place-items-center overflow-hidden rounded-lg bg-[#f5f4ed] text-[34px]">
-                  {x.photo ? <img src={x.photo} alt={x.name} loading="lazy" className="h-full w-full object-cover" /> : x.emoji || '📦'}
-                </div>
-                <div className="text-[11px] font-bold text-ink">{x.name}</div>
-                <div className="mt-1 text-[10px] text-muted">{x.qty} {x.unit || 'pcs'} available{x.sku ? ` · ${x.sku}` : ''}</div>
-                <div className="mt-1.5 font-bold text-brand">{money(x.retail || x.cost, cur)}</div>
-              </button>
-            ))}
-          </div>
-        </Panel>
-
-        {/* Cart */}
+  const cartPanel = (
         <Panel title="Current sale" subtitle={count ? `${count} product${count === 1 ? '' : 's'} in this bill` : 'No items added'} action={<Badge tone="neutral">Draft bill</Badge>}>
           <div className="min-h-[130px] flex-1 px-[18px] py-2">
             {cartLines.length === 0 ? (
@@ -289,9 +251,62 @@ export function POS() {
             <p className="mt-2 text-center text-[9px] text-[#9aa49d]">Checkout records revenue, cost of goods, stock, and selected account.</p>
           </div>
         </Panel>
-      </div>
-      <Callout><b className="text-brand">Counter-ready:</b> This browser MVP supports keyboard search and item selection. Barcode devices, receipt printers and cash drawers require hardware permissions or a desktop app.</Callout>
+  );
 
+  return (
+    <div className="animate-fade flex min-h-0 flex-1 flex-col overflow-hidden lg:block">
+      <PageHead
+        eyebrow="Fast checkout"
+        title="Counter / POS"
+        subhead="Add items to a sale and update stock when you check out."
+        action={<button className="btn-secondary" onClick={clearCart}><Trash2 size={14} /> Clear cart</button>}
+      />
+      <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] gap-3 lg:grid-rows-none lg:grid-cols-[minmax(0,1.5fr)_minmax(300px,0.8fr)] lg:gap-4">
+        {/* Products */}
+        <Panel
+          className="flex min-h-0 flex-col overflow-hidden"
+          title="Shop items"
+          subtitle="Tap an item to add it to the current bill"
+          action={
+            <div className="relative">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#9aa49d]" />
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name or SKU…" className="h-[34px] w-[120px] rounded-lg border border-line bg-white py-0 pl-7 pr-2.5 text-[11px] outline-none focus:border-brand-400 sm:w-[180px]" />
+            </div>
+          }
+        >
+          <div className="grid min-h-0 flex-1 grid-cols-2 content-start gap-2.5 overflow-y-auto overscroll-contain p-3 sm:grid-cols-3 lg:min-h-[260px] lg:flex-none lg:overflow-visible lg:p-3.5" style={{ alignContent: 'start' }}>
+            {products.length === 0 ? (
+              <div className="col-span-full"><EmptyState message="No matching items. Add inventory first." /></div>
+            ) : products.map((x) => (
+              <button
+                key={x.id} onClick={() => addToCart(x.id)} disabled={x.qty <= 0}
+                className="min-h-[250px] min-w-0 rounded-[11px] border border-line bg-white p-3 text-left transition hover:border-brand-300 hover:bg-[#fbfdfb] disabled:opacity-50 lg:min-h-[150px]"
+              >
+                <div className="mb-2 grid aspect-[4/3] max-h-[132px] w-full place-items-center overflow-hidden rounded-lg bg-[#f5f4ed] text-[34px] lg:max-h-none">
+                  {x.photo ? <img src={x.photo} alt={x.name} loading="lazy" className="h-full w-full object-cover" /> : x.emoji || '📦'}
+                </div>
+                <div className="text-[11px] font-bold text-ink">{x.name}</div>
+                <div className="mt-1 text-[10px] text-muted">{x.qty} {x.unit || 'pcs'} available{x.sku ? ` · ${x.sku}` : ''}</div>
+                <div className="mt-1.5 font-bold text-brand">{money(x.retail || x.cost, cur)}</div>
+              </button>
+            ))}
+          </div>
+        </Panel>
+
+        {/* Desktop keeps the full checkout beside the catalog. */}
+        <div className="hidden lg:block">{cartPanel}</div>
+      </div>
+      <div className="flex shrink-0 items-center justify-between gap-3 border-t border-line bg-white px-1 pt-3 pb-[max(0.25rem,env(safe-area-inset-bottom))] lg:hidden">
+        <button type="button" onClick={() => setMobileCartOpen(true)} disabled={count === 0} className="mx-auto flex w-full max-w-[520px] items-center justify-between gap-3 rounded-xl bg-[#1b5c45] px-4 py-3 text-left text-white">
+          <span className="min-w-0"><span className="block text-[12px] font-bold">{count ? `Review bill · ${count} ${count === 1 ? 'item' : 'items'}` : 'Add items to start'}</span><span className="mt-0.5 block text-[11px] text-white/80">Payment and complete sale</span></span>
+          <span className="shrink-0 text-[14px] font-extrabold">{money(total, cur)} <span aria-hidden="true">›</span></span>
+        </button>
+      </div>
+      <div className="hidden lg:block"><Callout><b className="text-brand">Counter-ready:</b> This browser MVP supports keyboard search and item selection. Barcode devices, receipt printers and cash drawers require hardware permissions or a desktop app.</Callout></div>
+
+      <Modal open={mobileCartOpen} onClose={() => setMobileCartOpen(false)} title="Review bill" width="max-w-xl">
+        {cartPanel}
+      </Modal>
       <Modal open={showCustomerForm} onClose={() => setShowCustomerForm(false)} title="Save a customer">
         <form onSubmit={saveNewCustomer} className="space-y-3.5 p-5">
           <Field label="Customer name"><input className="field-input" value={newCustomerName} onChange={(e) => setNewCustomerName(e.target.value)} required autoFocus placeholder="Full name" /></Field>

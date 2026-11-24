@@ -119,15 +119,15 @@ function AppContent() {
   return (
     <>
       <StoreProvider key={storageScope} scope={storageScope}>
-        <div className="min-h-screen md:pl-[248px]">
+        <div className={page === 'pos' ? 'h-[100dvh] overflow-hidden md:pl-[248px] lg:min-h-screen lg:h-auto lg:overflow-visible' : 'min-h-screen md:pl-[248px]'}>
           <Sidebar page={page} onNavigate={navigate} open={menuOpen} onClose={() => setMenuOpen(false)} onSignOut={() => {
             void auth.signOut().catch(() => {
               // Local sign-out still returns the user to the login screen.
             });
           }} />
-          <div className="flex min-h-screen flex-col">
+          <div className={page === 'pos' ? 'flex h-full min-h-0 flex-col lg:min-h-screen lg:h-auto' : 'flex min-h-screen flex-col'}>
             <Topbar page={page} onOpenMenu={() => setMenuOpen(true)} onOpenSettings={() => navigate('settings')} />
-            <main className="mx-auto w-full max-w-[1320px] flex-1 px-4 py-8 md:px-9 md:pb-14">
+            <main className={page === 'pos' ? 'mx-auto flex min-h-0 w-full max-w-[1320px] flex-1 flex-col overflow-hidden px-3 py-3 md:px-4 lg:block lg:overflow-visible lg:px-9 lg:py-8 lg:pb-14' : 'mx-auto w-full max-w-[1320px] flex-1 px-4 py-8 md:px-9 md:pb-14'}>
               {page === 'overview' && <Dashboard onNavigate={navigate} />}
               {page === 'pos' && <POS />}
               {page === 'transactions' && <Transactions />}
