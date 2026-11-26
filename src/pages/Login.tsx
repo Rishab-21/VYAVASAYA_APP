@@ -205,7 +205,7 @@ export function Login() {
 
               <p className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#4a9663]">Welcome to Vyavasya</p>
               <h2 className="font-display text-[27px] font-extrabold leading-[1.12] tracking-[-0.045em] text-[#1f3029] sm:text-[32px]">{mode === 'signup' ? 'Create your account.' : 'Welcome back.'}</h2>
-              <p className="mt-2.5 text-[12px] leading-6 text-[#77837b] sm:text-[13px]">{mode === 'signup' ? 'Create your login, tell us about yourself and set up your business workspace.' : 'Log in with the mobile number and password linked to your account.'}</p>
+              <p className="mt-2.5 text-[12px] leading-6 text-[#77837b] sm:text-[13px]">{mode === 'signup' ? 'Create your login, tell us about yourself and set up your business workspace.' : 'Log in with your phone number and password. Staff can use the sign-in details provided by their business owner.'}</p>
 
               <div className="mt-6 grid grid-cols-2 rounded-xl bg-[#f4f7f3] p-1">
                 {(['login', 'signup'] as const).map((item) => (
@@ -311,7 +311,7 @@ export function Login() {
 
                   <div className="mt-5 flex items-start gap-2.5 rounded-xl bg-[#f7f9f6] p-3">
                     <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-white text-[#4b9664] shadow-sm"><Check size={14} /></span>
-                    <p className="pt-0.5 text-[10px] leading-5 text-[#77837b]"><b className="font-bold text-[#45554b]">{mode === 'signup' ? 'Your data follows your account.' : 'New to Vyavasya?'}</b> {mode === 'signup' ? 'Your records will sync across devices after you log in.' : 'Choose Create account first, then log in with the same details.'}</p>
+                    <p className="pt-0.5 text-[10px] leading-5 text-[#77837b]"><b className="font-bold text-[#45554b]">{mode === 'signup' ? 'Your data follows your account.' : 'Staff member?'}</b> {mode === 'signup' ? 'Your records will sync across devices after you log in.' : 'Use the phone number and password your business owner gave you. Staff should not create a separate business account.'}</p>
                   </div>
           <p className="mt-4 text-center text-[10px] leading-5 text-[#8a958d]">Your phone number is your login ID. Keep your password private.</p>
             </div>

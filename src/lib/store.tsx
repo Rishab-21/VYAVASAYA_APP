@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import type {
   AppData, Transaction, Contact, Item, Invoice, Purchase, Account,
-  Settings, BusinessWorkspace, TxnType, TxnStatus,
+  Settings, BusinessWorkspace, TxnType, TxnStatus, StaffMember, AttendanceRecord, SalaryPayment, StaffRole,
 } from './types';
 import {
   STORAGE_KEY, BUSINESS_KEY, ACTIVE_KEY, demoData, emptyData, normalizeData,
@@ -16,6 +16,7 @@ interface ToastFn { (msg: string): void; }
 interface StoreValue {
   data: AppData;
   businessId: string;
+  accessRole: 'Owner' | StaffRole;
   businesses: BusinessWorkspace[];
   toast: ToastFn;
   toastMsg: string | null;
@@ -45,6 +46,10 @@ interface StoreValue {
   receivePurchase: (id: number) => { ok: boolean; error?: string };
   // accounts
   addAccount: (a: Omit<Account, 'id'>) => void;
+  addStaff: (staff: Omit<StaffMember, 'id'>) => void;
+  updateStaff: (id: number, patch: Partial<StaffMember>) => void;
+  recordAttendance: (record: Omit<AttendanceRecord, 'id'>) => void;
+  addSalaryPayment: (payment: Omit<SalaryPayment, 'id'>) => { ok: boolean; error?: string };
 }
 
 interface TxnInput {
@@ -141,7 +146,7 @@ function persist(keys: StorageKeys, scope: string, businesses: BusinessWorkspace
 }
 
 export function StoreProvider({ children, scope = 'local' }: { children: ReactNode; scope?: string }) {
-  const { client, user } = useAuth();
+  const { client, user, signOut } = useAuth();
   const keys = useMemo(() => storageKeys(scope), [scope]);
   const [businesses, setBusinesses] = useState<BusinessWorkspace[]>(() => {
     const book = loadBusinesses(keys.businesses);
@@ -178,6 +183,8 @@ export function StoreProvider({ children, scope = 'local' }: { children: ReactNo
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [databaseReady, setDatabaseReady] = useState(false);
   const [cloudStatus, setCloudStatus] = useState<{ owner: string; bootstrapping: boolean; enabled: boolean } | null>(null);
+  const [accessRole, setAccessRole] = useState<'Owner' | StaffRole>('Owner');
+  const [accessDenied, setAccessDenied] = useState(false);
   const localChanges = useRef(false);
   const initialBusinesses = useRef(businesses);
 
@@ -218,8 +225,29 @@ export function StoreProvider({ children, scope = 'local' }: { children: ReactNo
     }
     let active = true;
     setCloudStatus({ owner: user.id, bootstrapping: true, enabled: false });
-    void readCloudWorkspaces(client, user.id).then(async (remote) => {
+    void Promise.all([client.rpc('get_my_staff_access'), readCloudWorkspaces(client, user.id)]).then(async ([membershipResult, remote]) => {
       if (!active) return;
+      const membership = membershipResult.error ? null : membershipResult.data as { role?: StaffRole; active?: boolean } | null;
+      const isStaffLogin = user.app_metadata?.account_type === 'staff';
+      if ((membership || isStaffLogin) && (!membership || !membership.active || !remote.length)) {
+        setAccessDenied(true);
+        setCloudStatus({ owner: user.id, bootstrapping: false, enabled: false });
+        return;
+      }
+      setAccessRole(membership?.role || 'Owner');
+      if (membership) {
+        const selected = remote[0];
+        await replaceWorkspaces(scope, remote);
+        if (!active) return;
+        setBusinesses(remote);
+        setBusinessId(selected.id);
+        setData(normalizeData(selected.data));
+        localStorage.setItem(keys.businesses, JSON.stringify(remote));
+        localStorage.setItem(keys.active, selected.id);
+        localStorage.setItem(keys.data, JSON.stringify(selected.data));
+        setCloudStatus({ owner: user.id, bootstrapping: false, enabled: true });
+        return;
+      }
       if (remote.length) {
         const selectedId = localStorage.getItem(keys.active) || 'main';
         const selected = remote.find((workspace) => workspace.id === selectedId) || remote[0];
@@ -263,7 +291,10 @@ export function StoreProvider({ children, scope = 'local' }: { children: ReactNo
       if (active) setCloudStatus({ owner: user.id, bootstrapping: false, enabled: true });
     }).catch(() => {
       // Keep the device copy available if the project or table is not configured yet.
-      if (active) setCloudStatus({ owner: user.id, bootstrapping: false, enabled: false });
+      if (active) {
+        if (user.app_metadata?.account_type === 'staff') setAccessDenied(true);
+        setCloudStatus({ owner: user.id, bootstrapping: false, enabled: false });
+      }
     });
     return () => { active = false; };
   }, [client, databaseReady, keys, scope, user]);
@@ -675,15 +706,62 @@ export function StoreProvider({ children, scope = 'local' }: { children: ReactNo
     save({ ...data, accounts: [...data.accounts, { ...a, id: nextId(data.accounts) }] });
   }, [data, save]);
 
+  const addStaff = useCallback((staff: Omit<StaffMember, 'id'>) => {
+    save({ ...data, staff: [...data.staff, { ...staff, id: nextId(data.staff) }] });
+  }, [data, save]);
+
+  const updateStaff = useCallback((id: number, patch: Partial<StaffMember>) => {
+    const current = data.staff.find((person) => person.id === id);
+    save({ ...data, staff: data.staff.map((person) => person.id === id ? { ...person, ...patch } : person) });
+    if (current && client && user) {
+      const updated = { ...current, ...patch };
+      void client.rpc('update_staff_account', {
+        p_workspace_id: businessId, p_staff_id: id, p_active: updated.status === 'Active', p_role: updated.role, p_phone: updated.phone,
+      });
+    }
+  }, [businessId, client, data, save, user]);
+
+  const recordAttendance = useCallback((record: Omit<AttendanceRecord, 'id'>) => {
+    const existing = data.attendance.find((entry) => entry.staffId === record.staffId && entry.date === record.date);
+    const attendance = existing
+      ? data.attendance.map((entry) => entry.id === existing.id ? { ...entry, ...record } : entry)
+      : [...data.attendance, { ...record, id: nextId(data.attendance) }];
+    save({ ...data, attendance });
+  }, [data, save]);
+
+  const addSalaryPayment = useCallback((payment: Omit<SalaryPayment, 'id'>): { ok: boolean; error?: string } => {
+    const amount = roundMoney(payment.amount);
+    if (!Number.isFinite(amount) || amount <= 0) return { ok: false, error: 'Enter a salary amount greater than zero.' };
+    const staff = data.staff.find((person) => person.id === payment.staffId);
+    if (!staff) return { ok: false, error: 'Choose a staff member.' };
+    const account = payment.accountId == null ? null : data.accounts.find((item) => item.id === payment.accountId);
+    if (payment.accountId != null && !account) return { ok: false, error: 'Choose a valid payment account.' };
+    const salaryPayment: SalaryPayment = { ...payment, amount, id: nextId(data.salaryPayments) };
+    const next: AppData = {
+      ...data,
+      salaryPayments: [...data.salaryPayments, salaryPayment],
+      transactions: [...data.transactions, {
+        id: nextId(data.transactions), name: staff.name, type: 'Expense', category: 'Salary', date: payment.date,
+        amount, status: 'Paid', paidAmount: amount, accountId: account?.id ?? null, itemId: null, quantity: null,
+        notes: `Salary for ${payment.period}${payment.note ? ` · ${payment.note}` : ''}`,
+      }],
+      accounts: account ? data.accounts.map((item) => item.id === account.id ? { ...item, balance: roundMoney(item.balance - amount) } : item) : data.accounts,
+    };
+    save(next);
+    return { ok: true };
+  }, [data, save]);
+
   const value: StoreValue = {
-    data, businessId, businesses, toast, toastMsg,
+    data, businessId, accessRole, businesses, toast, toastMsg,
     updateSettings, switchBusiness, addBusiness, resetDemo, importBackup, exportBackup,
     addTransaction, addContact, updateContact, addItem, updateItem, importItems,
     posCheckout, addInvoice, postInvoice, addPurchase, receivePurchase, addAccount,
+    addStaff, updateStaff, recordAttendance, addSalaryPayment,
   };
 
   if (!databaseReady) return null;
-  if (cloudStatus?.bootstrapping) {
+  if (accessDenied) return <div className="grid min-h-screen place-items-center bg-[#f5f7f3] p-5"><div className="max-w-md rounded-2xl border border-line bg-white p-6 text-center shadow-sm"><h1 className="font-display text-lg font-bold text-ink">Staff access unavailable</h1><p className="mt-2 text-sm leading-relaxed text-muted">This staff login is inactive or its workspace could not be loaded. Contact the business owner or sign out.</p><button className="btn-primary mt-5" onClick={() => { void signOut().catch(() => {}); }}>Sign out</button></div></div>;
+  if (cloudStatus?.bootstrapping || (client && user && cloudStatus?.owner !== user.id)) {
     return <div className="grid min-h-screen place-items-center bg-[#f5f7f3] text-sm text-[#55715e]">Loading your saved business data…</div>;
   }
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

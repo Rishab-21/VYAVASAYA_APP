@@ -29,6 +29,9 @@ export function emptyData(overrides: Partial<AppData> = {}): AppData {
     accounts: [
       { id: Date.now() + 1, name: 'Cash drawer', type: 'Cash', balance: 0 },
     ],
+    staff: [],
+    attendance: [],
+    salaryPayments: [],
     settings: { ...defaultSettings },
     ...overrides,
   };
@@ -45,6 +48,9 @@ export function demoData(): AppData {
       { id: 1, name: 'Cash drawer', type: 'Cash', balance: 42850 },
       { id: 2, name: 'Nabil Bank · 2314', type: 'Bank', balance: 125400 },
     ],
+    staff: [],
+    attendance: [],
+    salaryPayments: [],
     contacts: [
       { id: 1, name: 'Ramesh Shrestha', type: 'Customer', phone: '9801234567', balance: 3200, balanceType: 'They owe me', last: 'Today', notes: 'Regular weekly buyer.' },
       { id: 2, name: 'Maya Gurung', type: 'Customer', phone: '9812345678', balance: 0, balanceType: 'They owe me', last: '8 Nov' },
@@ -128,6 +134,9 @@ export function normalizeData(raw: Partial<AppData> | null | undefined): AppData
     invoices: Array.isArray(raw.invoices) ? raw.invoices : base.invoices,
     purchases: Array.isArray(raw.purchases) ? raw.purchases : base.purchases,
     accounts: Array.isArray(raw.accounts) && raw.accounts.length ? raw.accounts : base.accounts,
+    staff: Array.isArray(raw.staff) ? raw.staff : base.staff,
+    attendance: Array.isArray(raw.attendance) ? raw.attendance : base.attendance,
+    salaryPayments: Array.isArray(raw.salaryPayments) ? raw.salaryPayments : base.salaryPayments,
     settings: { ...base.settings, ...(raw.settings || {}) },
   };
 }

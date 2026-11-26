@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { useStore } from '@/lib/store';
 import type { PageId } from '@/lib/types';
 import { BrandLockup } from '@/components/BrandLogo';
+import { canAccessPage } from '@/lib/access';
 import {
   LayoutDashboard, ShoppingCart, ArrowLeftRight, Users, Package,
   FileText, ClipboardList, Wallet, BarChart3, Settings as SettingsIcon,
-  Menu, ChevronDown, Store, Handshake, Plus, LogOut,
+  Menu, ChevronDown, Store, Handshake, Plus, LogOut, UserCog,
 } from 'lucide-react';
 
 interface NavItem { id: PageId; label: string; icon: typeof LayoutDashboard; }
@@ -20,6 +21,7 @@ const navItems: NavItem[] = [
   { id: 'purchases', label: 'Purchase orders', icon: ClipboardList },
   { id: 'accounts', label: 'Cash & accounts', icon: Wallet },
   { id: 'reports', label: 'Reports', icon: BarChart3 },
+  { id: 'staff', label: 'Staff management', icon: UserCog },
 ];
 
 interface SidebarProps {
@@ -31,7 +33,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ page, onNavigate, open, onClose, onSignOut }: SidebarProps) {
-  const { data, businesses, businessId, switchBusiness, addBusiness, toast } = useStore();
+  const { data, businesses, businessId, accessRole, switchBusiness, addBusiness, toast } = useStore();
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [addingBusiness, setAddingBusiness] = useState(false);
   const [newBusinessName, setNewBusinessName] = useState('');
@@ -118,7 +120,7 @@ export function Sidebar({ page, onNavigate, open, onClose, onSignOut }: SidebarP
         {/* nav */}
         <div className="px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-[1.2px] text-[#9aa49d]">Workspace</div>
         <nav className="grid min-h-0 flex-1 gap-1 overflow-y-auto px-3 pb-2">
-          {navItems.map((n) => {
+          {navItems.filter((item) => canAccessPage(accessRole, item.id)).map((n) => {
             const Icon = n.icon;
             const active = page === n.id;
             return (
@@ -135,7 +137,7 @@ export function Sidebar({ page, onNavigate, open, onClose, onSignOut }: SidebarP
             );
           })}
           <div className="px-1 pb-1 pt-4 text-[10px] font-bold uppercase tracking-[1.2px] text-[#9aa49d]">Setup</div>
-          <button
+          {canAccessPage(accessRole, 'settings') && <button
             onClick={() => { onNavigate('settings'); onClose(); }}
             className={`flex items-center gap-3 rounded-[9px] px-3 py-2.5 text-left text-[12px] transition ${
               page === 'settings' ? 'bg-[#dceee2] font-bold text-[#164b39] shadow-[inset_3px_0_0_#1b5c45]' : 'font-medium text-[#536359] hover:bg-[#f1f5f1] hover:text-ink'
@@ -143,7 +145,7 @@ export function Sidebar({ page, onNavigate, open, onClose, onSignOut }: SidebarP
           >
             <SettingsIcon size={16} className={page === 'settings' ? 'text-brand' : 'text-[#9aa49d]'} />
             Business settings
-          </button>
+          </button>}
         </nav>
 
         {/* bottom */}

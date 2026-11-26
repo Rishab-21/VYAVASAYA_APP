@@ -14,12 +14,35 @@ import { CommercialPartners } from '@/pages/CommercialPartners';
 import { Accounts } from '@/pages/Accounts';
 import { Reports } from '@/pages/Reports';
 import { Settings } from '@/pages/Settings';
+import { Staff } from '@/pages/Staff';
 import type { PageId } from '@/lib/types';
+import { canAccessPage } from '@/lib/access';
+import { useStore } from '@/lib/store';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { Login } from '@/pages/Login';
 import { BrandArtwork, BrandMark } from '@/components/BrandLogo';
 
 const INTRO_KEY = 'vyavasya-intro-seen';
+
+function RouteContent({ page, onNavigate }: { page: PageId; onNavigate: (page: PageId) => void }) {
+  const { accessRole } = useStore();
+  const allowedPage = canAccessPage(accessRole, page) ? page : 'overview';
+  useEffect(() => { if (allowedPage !== page) onNavigate(allowedPage); }, [allowedPage, onNavigate, page]);
+  return <>
+    {allowedPage === 'overview' && <Dashboard onNavigate={onNavigate} />}
+    {allowedPage === 'pos' && <POS />}
+    {allowedPage === 'transactions' && <Transactions />}
+    {allowedPage === 'contacts' && <Contacts />}
+    {allowedPage === 'commercial' && <CommercialPartners />}
+    {allowedPage === 'inventory' && <Inventory />}
+    {allowedPage === 'invoices' && <Invoices />}
+    {allowedPage === 'purchases' && <Purchases />}
+    {allowedPage === 'accounts' && <Accounts />}
+    {allowedPage === 'reports' && <Reports />}
+    {allowedPage === 'settings' && <Settings />}
+    {allowedPage === 'staff' && <Staff />}
+  </>;
+}
 
 function shouldShowIntro() {
   try {
@@ -128,17 +151,7 @@ function AppContent() {
           <div className={page === 'pos' ? 'flex h-full min-h-0 flex-col lg:min-h-screen lg:h-auto' : 'flex min-h-screen flex-col'}>
             <Topbar page={page} onOpenMenu={() => setMenuOpen(true)} onOpenSettings={() => navigate('settings')} />
             <main className={page === 'pos' ? 'mx-auto flex min-h-0 w-full max-w-[1320px] flex-1 flex-col overflow-hidden px-3 py-3 md:px-4 lg:block lg:overflow-visible lg:px-9 lg:py-8 lg:pb-14' : 'mx-auto w-full max-w-[1320px] flex-1 px-4 py-8 md:px-9 md:pb-14'}>
-              {page === 'overview' && <Dashboard onNavigate={navigate} />}
-              {page === 'pos' && <POS />}
-              {page === 'transactions' && <Transactions />}
-              {page === 'contacts' && <Contacts />}
-              {page === 'commercial' && <CommercialPartners />}
-              {page === 'inventory' && <Inventory />}
-              {page === 'invoices' && <Invoices />}
-              {page === 'purchases' && <Purchases />}
-              {page === 'accounts' && <Accounts />}
-              {page === 'reports' && <Reports />}
-              {page === 'settings' && <Settings />}
+              <RouteContent page={page} onNavigate={navigate} />
             </main>
           </div>
           <Toast />

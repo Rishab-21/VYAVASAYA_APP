@@ -122,6 +122,39 @@ export interface Account {
   balance: number;
 }
 
+export type StaffRole = 'Administrator' | 'Manager' | 'Cashier' | 'Inventory clerk';
+export type StaffStatus = 'Active' | 'Inactive';
+export type AttendanceStatus = 'Present' | 'Late' | 'Absent' | 'Leave';
+export interface StaffMember {
+  id: number;
+  name: string;
+  phone: string;
+  position: string;
+  role: StaffRole;
+  monthlySalary: number;
+  startDate: string;
+  status: StaffStatus;
+  notes?: string;
+}
+export interface AttendanceRecord {
+  id: number;
+  staffId: number;
+  date: string;
+  status: AttendanceStatus;
+  checkIn?: string;
+  checkOut?: string;
+  note?: string;
+}
+export interface SalaryPayment {
+  id: number;
+  staffId: number;
+  date: string;
+  period: string;
+  amount: number;
+  accountId: number | null;
+  note?: string;
+}
+
 export interface Settings {
   businessName: string;
   businessType: string;
@@ -144,6 +177,9 @@ export interface AppData {
   invoices: Invoice[];
   purchases: Purchase[];
   accounts: Account[];
+  staff: StaffMember[];
+  attendance: AttendanceRecord[];
+  salaryPayments: SalaryPayment[];
   settings: Settings;
 }
 
@@ -163,5 +199,6 @@ export type PageId =
   | 'invoices'
   | 'purchases'
   | 'accounts'
+  | 'staff'
   | 'reports'
   | 'settings';

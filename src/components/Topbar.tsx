@@ -13,11 +13,12 @@ const labels: Record<PageId, string> = {
   purchases: 'Purchase orders',
   accounts: 'Cash & accounts',
   reports: 'Reports',
+  staff: 'Staff management',
   settings: 'Business settings',
 };
 
 export function Topbar({ page, onOpenMenu, onOpenSettings }: { page: PageId; onOpenMenu: () => void; onOpenSettings: () => void }) {
-  const { data, toast } = useStore();
+  const { data, accessRole, toast } = useStore();
   return (
     <header className="sticky top-0 z-20 flex h-[72px] items-center justify-between border-b border-line bg-white/90 px-4 backdrop-blur-md md:px-9">
       <div className="flex items-center gap-2.5">
@@ -36,13 +37,13 @@ export function Topbar({ page, onOpenMenu, onOpenSettings }: { page: PageId; onO
         <span className="hidden items-center gap-1.5 rounded-lg border border-line bg-white px-3 py-2 text-[12px] text-[#59645d] sm:inline-flex">
           <CalendarClock size={14} className="text-[#9aa49d]" /> This month
         </span>
-        <button
+        {accessRole === 'Owner' || accessRole === 'Administrator' ? <button
           onClick={onOpenSettings}
           className="btn-secondary hidden sm:inline-flex"
           title="Business settings"
         >
           <SettingsIcon size={14} /> Settings
-        </button>
+        </button> : null}
         <button
           onClick={() => toast('Tip: use Counter / POS for itemized sales, Transactions for expenses and payments, and Settings to edit this workspace or back up its data.')}
           className="grid h-9 w-9 place-items-center rounded-lg border border-line bg-white text-[#657168]"

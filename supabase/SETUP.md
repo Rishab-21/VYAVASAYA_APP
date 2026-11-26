@@ -12,9 +12,18 @@
 
    Never put a `service_role` or secret key in this app. Client apps must use the publishable key; row-level security protects user data.
 
-3. Apply `migrations/20261111000000_business_workspaces.sql` in the Supabase SQL Editor. The policy restricts every workspace row to the authenticated user whose ID is its `owner_id`.
-4. In **Authentication → Sign In / Providers**, turn off **Confirm email**. The app maps each normalized phone number to a deterministic internal email identifier so Supabase can securely hash and check passwords without sending SMS or email. Do not enable Phone auth; hosted Supabase Phone auth requires an SMS provider.
-5. Rebuild and sync the native app after setting `.env.local`:
+3. Apply the migrations in `supabase/migrations` in date order. The staff access migration adds workspace membership records and server-side read/write functions. Owner data stays protected by the existing workspace policies; staff sessions receive a role-filtered workspace through the database functions.
+4. If using the Supabase CLI, link the project, apply the migrations, and deploy the login function:
+
+   ```sh
+   supabase link --project-ref YOUR_PROJECT_REF
+   supabase db push
+   supabase functions deploy create-staff-login
+   ```
+
+   The function uses Supabase's server-side `SUPABASE_SERVICE_ROLE_KEY`; never copy that key into `.env.local` or the app. Alternatively, apply the migration SQL in the SQL Editor and deploy the Edge Function from the Supabase dashboard.
+5. In **Authentication → Sign In / Providers**, turn off **Confirm email**. The app maps each normalized phone number to a deterministic internal email identifier so Supabase can securely hash and check passwords without sending SMS or email. Do not enable Phone auth; hosted Supabase Phone auth requires an SMS provider.
+6. Rebuild and sync the native app after setting `.env.local`:
 
    ```sh
    npm run build
@@ -23,7 +32,7 @@
 
    Then run the `App` scheme from `ios/App/App.xcodeproj`.
 
-The app presents a phone number as the account ID and uses the password with Supabase email/password auth under the hood. The internal identifier uses the reserved `.invalid` domain and is never used for messaging. During signup the owner profile and business details are saved to auth user metadata and copied to the new workspace's Business Settings. After sign-in, each user's workspaces are fetched from and synced to `business_workspaces`; local IndexedDB remains available for offline use. For native development only, set `VITE_ENABLE_NATIVE_PREVIEW=true` in `.env.local` to keep an explicitly labeled local preview available. Leave that variable unset for production builds. Preview data remains on that device and is not backed up to the cloud.
+The app presents a phone number as the account ID and uses the password with Supabase email/password auth under the hood. The internal identifier uses the reserved `.invalid` domain and is never used for messaging. During signup the owner profile and business details are saved to auth user metadata and copied to the new workspace's Business Settings. After sign-in, owners use their existing workspace sync. Staff logins are created by an authenticated owner or Administrator from Staff Management, and staff read/write through role-checked database functions; the service-role key stays inside Supabase. Staff sign in on the same login screen using their phone number and the password set when creating their login. Local IndexedDB remains available for offline use. For native development only, set `VITE_ENABLE_NATIVE_PREVIEW=true` in `.env.local` to keep an explicitly labeled local preview available. Leave that variable unset for production builds. Preview data remains on that device and is not backed up to the cloud.
 
 This no-code flow does not verify that a user owns the phone number they enter. Password recovery is not available until a recovery method is added. Turning off email confirmation is a project-wide setting, so it also affects any email-based signup flows in the same Supabase project.
 

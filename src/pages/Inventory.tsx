@@ -11,7 +11,8 @@ import type { Item } from '@/lib/types';
 interface PreviewRow { item: Partial<Item>; valid: boolean; error: string; }
 
 export function Inventory() {
-  const { data, importItems, toast } = useStore();
+  const { data, accessRole, importItems, toast } = useStore();
+  const readOnly = accessRole === 'Inventory clerk';
   const [open, setOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [query, setQuery] = useState('');
@@ -131,13 +132,13 @@ export function Inventory() {
         action={
           <div className="flex flex-wrap justify-end gap-2">
             <button className="btn-secondary" onClick={exportCSV}><Download size={14} /> Export</button>
-            <button className="btn-secondary" onClick={downloadTemplate}><Download size={14} /> Template</button>
+            {!readOnly && <><button className="btn-secondary" onClick={downloadTemplate}><Download size={14} /> Template</button>
             <button className="btn-secondary" onClick={() => fileRef.current?.click()}><Upload size={14} /> Import Excel / CSV</button>
-            <button className="btn-primary" onClick={() => setOpen(true)}><Plus size={15} /> Add an item</button>
+            <button className="btn-primary" onClick={() => setOpen(true)}><Plus size={15} /> Add an item</button></>}
           </div>
         }
       />
-      <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" hidden onChange={handleFile} />
+      {!readOnly && <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" hidden onChange={handleFile} />}
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <SummaryBox label="Items tracked" value={String(data.items.length)} />
         <SummaryBox label="Stock value" value={money(t.stockValue, cur)} />
@@ -163,13 +164,13 @@ export function Inventory() {
         <div className="overflow-x-auto">
           <table className="w-full border-collapse whitespace-nowrap">
             <thead>
-              <tr>{['Item / SKU', 'Category', 'In stock', 'Reorder at', 'Cost', 'Retail', 'Wholesale', 'Status', ''].map((h, i) => (
+              <tr>{['Item / SKU', 'Category', 'In stock', 'Reorder at', 'Cost', 'Retail', 'Wholesale', 'Status', ...(readOnly ? [] : [''])].map((h, i) => (
                 <th key={h || 'actions'} className={`px-[18px] py-3 text-[9px] font-bold uppercase tracking-wide text-[#98a199] ${i >= 2 && i <= 6 ? 'text-right' : 'text-left'}`}>{h}</th>
               ))}</tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={9}><EmptyState message="Add an item to start tracking stock." /></td></tr>
+                <tr><td colSpan={readOnly ? 8 : 9}><EmptyState message={readOnly ? 'No inventory items have been added yet.' : 'Add an item to start tracking stock.'} /></td></tr>
               ) : filtered.map((x) => (
                 <tr key={x.id} className="border-t border-[#f0f2ee] transition hover:bg-[#fafbf9]">
                   <td className="px-[18px] py-3 text-[11px] font-semibold text-ink">
@@ -185,11 +186,11 @@ export function Inventory() {
                   <td className="px-[18px] py-3 text-right text-[11px] text-[#59645e]">{money(x.retail, cur)}</td>
                   <td className="px-[18px] py-3 text-right text-[11px] text-[#59645e]">{money(x.wholesale, cur)}</td>
                   <td className="px-[18px] py-3"><Badge tone={x.qty <= x.reorder ? 'red' : 'green'}>{x.qty <= x.reorder ? 'Restock soon' : 'In stock'}</Badge></td>
-                  <td className="px-[18px] py-3 text-right">
+                  {!readOnly && <td className="px-[18px] py-3 text-right">
                     <button type="button" onClick={() => setEditingItem(x)} className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-[10px] font-semibold text-brand transition hover:border-brand-300 hover:bg-brand-100" aria-label={`Edit ${x.name}`} title={`Edit ${x.name}`}>
                       <Pencil size={12} /> <span>Edit</span>
                     </button>
-                  </td>
+                  </td>}
                 </tr>
               ))}
             </tbody>
@@ -198,7 +199,7 @@ export function Inventory() {
       </Panel>
 
       {/* Spreadsheet import preview modal */}
-      <Modal open={!!preview} onClose={() => setPreview(null)} title="Preview inventory import" width="max-w-2xl">
+      {!readOnly && <Modal open={!!preview} onClose={() => setPreview(null)} title="Preview inventory import" width="max-w-2xl">
         <div className="p-5">
           <p className="mb-3 text-[12px] text-[#59645e]">
             Check the first worksheet below. Valid rows will be added; rows with errors are skipped. You can import Excel (.xlsx/.xls) or CSV files.
@@ -233,10 +234,10 @@ export function Inventory() {
             <button className="btn-primary" onClick={confirmImport} disabled={validCount === 0}>Import {validCount} item{validCount === 1 ? '' : 's'}</button>
           </div>
         </div>
-      </Modal>
+      </Modal>}
 
-      <ItemModal open={open} onClose={() => setOpen(false)} />
-      <ItemModal open={!!editingItem} item={editingItem} onClose={() => setEditingItem(null)} />
+      {!readOnly && <><ItemModal open={open} onClose={() => setOpen(false)} />
+      <ItemModal open={!!editingItem} item={editingItem} onClose={() => setEditingItem(null)} /></>}
     </div>
   );
 }
