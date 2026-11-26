@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarCheck, CreditCard, IndianRupee, LockKeyhole, Pencil, Plus, ShieldCheck, UsersRound } from 'lucide-react';
+import { CalendarCheck, CreditCard, Eye, EyeOff, IndianRupee, LockKeyhole, Pencil, Plus, ShieldCheck, UsersRound } from 'lucide-react';
 import { Badge, Callout, EmptyState, PageHead, Panel, SummaryBox } from '@/components/ui';
 import { Field, Modal } from '@/components/Modal';
 import { useStore } from '@/lib/store';
@@ -52,6 +52,9 @@ export function Staff() {
   const [loginFor, setLoginFor] = useState<StaffMember | null>(null);
   const [loginPassword, setLoginPassword] = useState('');
   const [loginPasswordConfirm, setLoginPasswordConfirm] = useState('');
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [createdCredentials, setCreatedCredentials] = useState<{ name: string; loginId: string; password: string } | null>(null);
   const [createLoginWithProfile, setCreateLoginWithProfile] = useState(false);
   const [phoneCallingCode, setPhoneCallingCode] = useState(data.settings.country === 'India' ? '+91' : '+977');
   const [loginBusy, setLoginBusy] = useState(false);
@@ -75,7 +78,7 @@ export function Staff() {
     });
   }, [canManageLogins, client]);
 
-  const openNew = () => { setEditing(null); setForm(blankStaff()); setPhoneCallingCode(data.settings.country === 'India' ? '+91' : '+977'); setCreateLoginWithProfile(canManageLogins); setLoginPassword(''); setLoginPasswordConfirm(''); setStaffOpen(true); };
+  const openNew = () => { setEditing(null); setForm(blankStaff()); setPhoneCallingCode(data.settings.country === 'India' ? '+91' : '+977'); setCreateLoginWithProfile(canManageLogins); setLoginPassword(''); setLoginPasswordConfirm(''); setShowLoginPassword(false); setShowConfirmPassword(false); setStaffOpen(true); };
   const openEdit = (person: StaffMember) => {
     setEditing(person);
     const { id: _id, ...profile } = person;
@@ -83,6 +86,8 @@ export function Staff() {
     setPhoneCallingCode(parsedPhone.code);
     setForm({ ...profile, phone: parsedPhone.local });
     setCreateLoginWithProfile(false);
+    setShowLoginPassword(false);
+    setShowConfirmPassword(false);
     setStaffOpen(true);
   };
   const saveStaff = async (event: React.FormEvent) => {
@@ -110,6 +115,7 @@ export function Staff() {
           } });
           if (error || result?.error) { setLoginBusy(false); setLoginPassword(''); setLoginPasswordConfirm(''); toast(result?.error || error?.message || 'Staff profile saved; could not create login. Use Set up login in the team list.'); setStaffOpen(false); return; }
           setLoginIds((previous) => new Set(previous).add(staffId));
+          setCreatedCredentials({ name: savedStaff.name, loginId: phone, password: loginPassword });
           setLoginBusy(false);
           setLoginPassword('');
           setLoginPasswordConfirm('');
@@ -151,6 +157,7 @@ export function Staff() {
     setLoginBusy(false);
     if (error || result?.error) { toast(result?.error || error?.message || 'Could not create the staff login'); return; }
     setLoginIds((previous) => new Set(previous).add(loginFor.id));
+    setCreatedCredentials({ name: loginFor.name, loginId: phone, password: loginPassword });
     setLoginPassword('');
     setLoginFor(null);
     toast('Staff login created. Share the phone number and password privately.');
@@ -170,7 +177,7 @@ export function Staff() {
 
     {tab === 'team' && <>
       <Panel title="Team members" subtitle="Staff profiles and assigned access role" className="mb-4">
-        {data.staff.length === 0 ? <div className="p-4"><EmptyState message="Add a staff member and set their login ID and password in the same form." />{canManageLogins && <button className="btn-primary mx-auto mt-3" onClick={openNew}><Plus size={14} /> Add staff member</button>}</div> : <div className="overflow-x-auto"><table className="w-full border-collapse whitespace-nowrap"><thead><tr>{['Name', 'Position', 'Access role', 'Monthly salary', 'Status', ...(canManageLogins ? ['Login'] : []), ''].map((label) => <th key={label} className="px-4 py-3 text-left text-[9px] font-bold uppercase tracking-wide text-[#98a199]">{label}</th>)}</tr></thead><tbody>{data.staff.map((person) => <tr key={person.id} className="border-t border-[#f0f2ee] hover:bg-[#fafbf9]"><td className="px-4 py-3 text-[11px] font-semibold text-ink">{person.name}<div className="text-[10px] font-normal text-muted">{person.phone || 'No phone saved'}</div></td><td className="px-4 py-3 text-[11px] text-[#59645e]">{person.position || '—'}</td><td className="px-4 py-3"><Badge tone={person.role === 'Administrator' ? 'amber' : 'green'}>{person.role}</Badge></td><td className="px-4 py-3 text-[11px] font-semibold text-ink">{money(person.monthlySalary, data.settings.currency)}</td><td className="px-4 py-3"><Badge tone={person.status === 'Active' ? 'green' : 'neutral'}>{person.status}</Badge></td>{canManageLogins && <td className="px-4 py-3">{loginIds.has(person.id) ? <Badge tone={suspendedLoginIds.has(person.id) ? 'neutral' : 'green'}>{suspendedLoginIds.has(person.id) ? 'Login suspended' : 'Login ready'}</Badge> : <div><button disabled={person.status !== 'Active' || !person.phone} onClick={() => { setLoginFor(person); setLoginPassword(''); }} className="inline-flex items-center gap-1 rounded-lg border border-line px-2.5 py-1.5 text-[10px] font-semibold text-brand hover:bg-brand-100 disabled:cursor-not-allowed disabled:opacity-40"><LockKeyhole size={12} /> Set up login</button>{!person.phone && <div className="mt-1 text-[9px] text-muted">Edit profile and add phone</div>}{person.phone && person.status !== 'Active' && <div className="mt-1 text-[9px] text-muted">Make profile active first</div>}</div>}</td>}<td className="px-4 py-3 text-right"><button onClick={() => openEdit(person)} className="inline-flex items-center gap-1 rounded-lg border border-line px-2.5 py-1.5 text-[10px] font-semibold text-brand hover:bg-brand-100"><Pencil size={12} /> Edit</button></td></tr>)}</tbody></table></div>}
+        {data.staff.length === 0 ? <div className="p-4"><EmptyState message="Add a staff member and set their login ID and password in the same form." />{canManageLogins && <button className="btn-primary mx-auto mt-3" onClick={openNew}><Plus size={14} /> Add staff member</button>}</div> : <div className="overflow-x-auto"><table className="w-full border-collapse whitespace-nowrap"><thead><tr>{['Name', 'Position', 'Access role', 'Monthly salary', 'Status', ...(canManageLogins ? ['Login'] : []), ''].map((label) => <th key={label} className="px-4 py-3 text-left text-[9px] font-bold uppercase tracking-wide text-[#98a199]">{label}</th>)}</tr></thead><tbody>{data.staff.map((person) => <tr key={person.id} className="border-t border-[#f0f2ee] hover:bg-[#fafbf9]"><td className="px-4 py-3 text-[11px] font-semibold text-ink">{person.name}<div className="text-[10px] font-normal text-muted">{person.phone || 'No phone saved'}</div></td><td className="px-4 py-3 text-[11px] text-[#59645e]">{person.position || '—'}</td><td className="px-4 py-3"><Badge tone={person.role === 'Administrator' ? 'amber' : 'green'}>{person.role}</Badge></td><td className="px-4 py-3 text-[11px] font-semibold text-ink">{money(person.monthlySalary, data.settings.currency)}</td><td className="px-4 py-3"><Badge tone={person.status === 'Active' ? 'green' : 'neutral'}>{person.status}</Badge></td>{canManageLogins && <td className="px-4 py-3">{loginIds.has(person.id) ? <Badge tone={suspendedLoginIds.has(person.id) ? 'neutral' : 'green'}>{suspendedLoginIds.has(person.id) ? 'Login suspended' : 'Login ready'}</Badge> : <div><button disabled={person.status !== 'Active' || !person.phone} onClick={() => { setLoginFor(person); setLoginPassword(''); setShowLoginPassword(false); }} className="inline-flex items-center gap-1 rounded-lg border border-line px-2.5 py-1.5 text-[10px] font-semibold text-brand hover:bg-brand-100 disabled:cursor-not-allowed disabled:opacity-40"><LockKeyhole size={12} /> Set up login</button>{!person.phone && <div className="mt-1 text-[9px] text-muted">Edit profile and add phone</div>}{person.phone && person.status !== 'Active' && <div className="mt-1 text-[9px] text-muted">Make profile active first</div>}</div>}</td>}<td className="px-4 py-3 text-right"><button onClick={() => openEdit(person)} className="inline-flex items-center gap-1 rounded-lg border border-line px-2.5 py-1.5 text-[10px] font-semibold text-brand hover:bg-brand-100"><Pencil size={12} /> Edit</button></td></tr>)}</tbody></table></div>}
       </Panel>
       <Panel title="Role access templates" subtitle="Feature access associated with each role" className="mb-4">
         <div className="grid gap-3 p-3 sm:grid-cols-2 xl:grid-cols-4">{roles.map((role) => <div key={role} className="rounded-xl border border-line bg-white p-3"><div className="mb-2 flex items-center gap-2 text-[11px] font-bold text-ink"><ShieldCheck size={14} className="text-brand" />{role}</div><div className="flex flex-wrap gap-1.5">{permissions[role].map((permission) => <span key={permission} className="rounded-full bg-[#f1f5f1] px-2 py-1 text-[9px] text-[#59645e]">{permission}</span>)}</div></div>)}</div>
@@ -201,9 +208,9 @@ export function Staff() {
           {createLoginWithProfile && <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <Field label="Staff login ID"><input className="field-input bg-white" value={normalizePhone(form.phone, phoneCallingCode) || 'Enter a valid mobile number'} readOnly /><p className="mt-1 text-[10px] text-muted">The ID is the selected country code and phone number.</p></Field>
             <div className="hidden sm:block" />
-            <Field label="Set password"><input type="password" autoComplete="new-password" minLength={10} maxLength={128} className="field-input bg-white" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} required /></Field>
-            <Field label="Confirm password"><input type="password" autoComplete="new-password" minLength={10} maxLength={128} className="field-input bg-white" value={loginPasswordConfirm} onChange={(e) => setLoginPasswordConfirm(e.target.value)} required /></Field>
-            <p className="col-span-full text-[10px] leading-relaxed text-muted">Use at least 10 characters. The password is stored securely and isn’t shown again after this form is saved.</p>
+            <Field label="Set password"><div className="relative"><input type={showLoginPassword ? 'text' : 'password'} autoComplete="new-password" minLength={10} maxLength={128} className="field-input bg-white pr-10" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} required /><button type="button" aria-label={showLoginPassword ? 'Hide password' : 'Show password'} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted" onClick={() => setShowLoginPassword((visible) => !visible)}>{showLoginPassword ? <EyeOff size={15} /> : <Eye size={15} />}</button></div></Field>
+            <Field label="Confirm password"><div className="relative"><input type={showConfirmPassword ? 'text' : 'password'} autoComplete="new-password" minLength={10} maxLength={128} className="field-input bg-white pr-10" value={loginPasswordConfirm} onChange={(e) => setLoginPasswordConfirm(e.target.value)} required /><button type="button" aria-label={showConfirmPassword ? 'Hide password' : 'Show password'} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted" onClick={() => setShowConfirmPassword((visible) => !visible)}>{showConfirmPassword ? <EyeOff size={15} /> : <Eye size={15} />}</button></div></Field>
+            <p className="col-span-full text-[10px] leading-relaxed text-muted">Use at least 10 characters. You can review the password after the login is created.</p>
           </div>}
         </div>}
         <Field label="Role includes" full><div className="flex flex-wrap gap-1.5">{permissions[form.role].map((item) => <span key={item} className="rounded-full bg-[#f1f5f1] px-2 py-1 text-[9px] text-[#59645e]">{item}</span>)}</div></Field>
@@ -227,10 +234,20 @@ export function Staff() {
     <Modal open={!!loginFor} onClose={() => { if (!loginBusy) { setLoginFor(null); setLoginPassword(''); } }} title="Create staff login">
       {loginFor && <form onSubmit={createLogin} className="space-y-4 p-5">
         <div className="rounded-xl bg-[#f1f7f1] p-3 text-[11px] leading-relaxed text-[#59645e]">{loginFor.name} will log in with <b className="text-ink">{loginFor.phone}</b> and this password. The app will limit their access to the <b className="text-ink">{loginFor.role}</b> role.</div>
-        <Field label="Temporary password"><input autoFocus type="password" autoComplete="new-password" minLength={10} maxLength={128} className="field-input" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} required /></Field>
+        <Field label="Temporary password"><div className="relative"><input autoFocus type={showLoginPassword ? 'text' : 'password'} autoComplete="new-password" minLength={10} maxLength={128} className="field-input pr-10" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} required /><button type="button" aria-label={showLoginPassword ? 'Hide password' : 'Show password'} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted" onClick={() => setShowLoginPassword((visible) => !visible)}>{showLoginPassword ? <EyeOff size={15} /> : <Eye size={15} />}</button></div></Field>
         <p className="text-[10px] leading-relaxed text-muted">Use at least 10 characters. Share it with the staff member privately; the app stores only its secured password hash.</p>
         <div className="flex justify-end gap-2 border-t border-line pt-4"><button type="button" className="btn-secondary" disabled={loginBusy} onClick={() => setLoginFor(null)}>Cancel</button><button type="submit" className="btn-primary" disabled={loginBusy || loginPassword.length < 10}><LockKeyhole size={14} /> {loginBusy ? 'Creating…' : 'Create login'}</button></div>
       </form>}
+    </Modal>
+
+    <Modal open={Boolean(createdCredentials)} onClose={() => setCreatedCredentials(null)} title="Staff login created">
+      {createdCredentials && <div className="space-y-4 p-5">
+        <div className="rounded-xl bg-[#f1f7f1] p-3 text-[11px] leading-relaxed text-[#59645e]">Give these sign-in details to <b className="text-ink">{createdCredentials.name}</b>. The password is shown here once and can’t be viewed again after you close this screen.</div>
+        <Field label="Login ID"><input className="field-input" value={createdCredentials.loginId} readOnly /></Field>
+        <Field label="Password"><input className="field-input select-all" value={createdCredentials.password} readOnly /></Field>
+        <p className="text-[10px] leading-relaxed text-muted">The app keeps a secure password hash; it never stores a readable copy of the password.</p>
+        <div className="flex justify-end border-t border-line pt-4"><button type="button" className="btn-primary" onClick={() => setCreatedCredentials(null)}>Done</button></div>
+      </div>}
     </Modal>
   </div>;
 }
