@@ -228,7 +228,6 @@ export function Login() {
                 <div className="grid grid-cols-2 gap-1">
                   {([['owner', 'Owner login'], ['staff', 'Staff login']] as const).map(([type, label]) => <button key={type} type="button" aria-pressed={accountType === type} onClick={() => { setAccountType(type); setError(''); setNotice(''); }} className={`rounded-lg px-2 py-2.5 text-[11px] font-bold transition ${accountType === type ? 'bg-white text-[#285f42] shadow-sm' : 'text-[#7b887e] hover:text-[#435b49]'}`}>{label}</button>)}
                 </div>
-                <p className="px-2 pb-1 pt-2 text-[10px] leading-relaxed text-[#77837b]">{accountType === 'owner' ? 'Sign in to your own business account.' : 'Sign in to the business workspace assigned by your employer.'}</p>
               </div>}
 
               <form className="mt-6 space-y-4" onSubmit={submit}>
