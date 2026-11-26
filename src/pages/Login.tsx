@@ -28,10 +28,14 @@ function countryFlag(code: string) {
   return dialCode ? flags[dialCode] : '🌐';
 }
 
-// Supabase Phone auth requires an SMS provider. Use a deterministic internal
-// email identifier instead, while keeping the phone number as the user's ID.
+// Supabase Phone auth requires an SMS provider. Separate internal identifiers
+// let one phone number have distinct owner and staff credentials without SMS.
 function phoneLoginEmail(phone: string) {
   return `phone${phone.replace(/\D/g, '')}@accounts.vyavasya.invalid`;
+}
+
+function staffPhoneLoginEmail(phone: string) {
+  return `staffphone${phone.replace(/\D/g, '')}@staff.accounts.vyavasya.invalid`;
 }
 
 const businessTypes = [
@@ -51,6 +55,7 @@ const businessTypes = [
 export function Login() {
   const { client, configured, previewAllowed, enterPreview } = useAuth();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [accountType, setAccountType] = useState<'owner' | 'staff'>('owner');
   const [callingCode, setCallingCode] = useState('+977');
   const [phoneInput, setPhoneInput] = useState('');
   const [password, setPassword] = useState('');
@@ -119,11 +124,15 @@ export function Login() {
           setNotice('Account created. Log in with your phone number and password.');
         }
       } else {
-        const { error: signInError } = await client.auth.signInWithPassword({ email: phoneLoginEmail(normalized), password });
+        const loginEmail = accountType === 'staff' ? staffPhoneLoginEmail(normalized) : phoneLoginEmail(normalized);
+        const { error: signInError } = await client.auth.signInWithPassword({ email: loginEmail, password });
         if (signInError) throw signInError;
       }
     } catch (authError) {
-      setError(authError instanceof Error ? authError.message : 'Could not access your account. Check your details and try again.');
+      const message = authError instanceof Error ? authError.message : '';
+      setError(accountType === 'staff' && message === 'Invalid login credentials'
+        ? 'Staff login not found. Ask the business owner to create or reset your staff login, then select Staff login here.'
+        : message || 'Could not access your account. Check your details and try again.');
     } finally {
       setBusy(false);
     }
@@ -205,15 +214,22 @@ export function Login() {
 
               <p className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#4a9663]">Welcome to Vyavasya</p>
               <h2 className="font-display text-[27px] font-extrabold leading-[1.12] tracking-[-0.045em] text-[#1f3029] sm:text-[32px]">{mode === 'signup' ? 'Create your account.' : 'Welcome back.'}</h2>
-              <p className="mt-2.5 text-[12px] leading-6 text-[#77837b] sm:text-[13px]">{mode === 'signup' ? 'Create your login, tell us about yourself and set up your business workspace.' : 'Log in with your phone number and password. Staff can use the sign-in details provided by their business owner.'}</p>
+              <p className="mt-2.5 text-[12px] leading-6 text-[#77837b] sm:text-[13px]">{mode === 'signup' ? 'Create your login, tell us about yourself and set up your business workspace.' : accountType === 'staff' ? 'Use the separate staff credentials given to you by the business owner.' : 'Log in to your own business with your owner credentials.'}</p>
 
               <div className="mt-6 grid grid-cols-2 rounded-xl bg-[#f4f7f3] p-1">
                 {(['login', 'signup'] as const).map((item) => (
-                  <button key={item} type="button" onClick={() => { setMode(item); setError(''); setNotice(''); setConfirmPassword(''); }} className={`rounded-[9px] py-2.5 text-[11px] font-bold transition ${mode === item ? 'bg-white text-[#285f42] shadow-sm' : 'text-[#7b887e] hover:text-[#435b49]'}`}>
+                  <button key={item} type="button" onClick={() => { setMode(item); if (item === 'signup') setAccountType('owner'); setError(''); setNotice(''); setConfirmPassword(''); }} className={`rounded-[9px] py-2.5 text-[11px] font-bold transition ${mode === item ? 'bg-white text-[#285f42] shadow-sm' : 'text-[#7b887e] hover:text-[#435b49]'}`}>
                     {item === 'login' ? 'Log in' : 'Create account'}
                   </button>
                 ))}
               </div>
+
+              {mode === 'login' && <div className="mt-4 rounded-xl border border-[#e8ede7] bg-[#fbfcfa] p-1" aria-label="Choose account type">
+                <div className="grid grid-cols-2 gap-1">
+                  {([['owner', 'Owner login'], ['staff', 'Staff login']] as const).map(([type, label]) => <button key={type} type="button" aria-pressed={accountType === type} onClick={() => { setAccountType(type); setError(''); setNotice(''); }} className={`rounded-lg px-2 py-2.5 text-[11px] font-bold transition ${accountType === type ? 'bg-white text-[#285f42] shadow-sm' : 'text-[#7b887e] hover:text-[#435b49]'}`}>{label}</button>)}
+                </div>
+                <p className="px-2 pb-1 pt-2 text-[10px] leading-relaxed text-[#77837b]">{accountType === 'owner' ? 'Sign in to your own business account.' : 'Sign in to the business workspace assigned by your employer.'}</p>
+              </div>}
 
               <form className="mt-6 space-y-4" onSubmit={submit}>
                     {mode === 'signup' && (

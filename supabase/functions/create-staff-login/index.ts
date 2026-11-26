@@ -5,7 +5,7 @@ const cors = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
-const phoneEmail = (phone: string) => `phone${phone.replace(/\D/g, '')}@accounts.vyavasya.invalid`;
+const staffPhoneEmail = (phone: string) => `staffphone${phone.replace(/\D/g, '')}@staff.accounts.vyavasya.invalid`;
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: cors });
@@ -44,7 +44,21 @@ Deno.serve(async (request) => {
       return Response.json({ error: 'Save the staff profile and role first, then create its login.' }, { status: 409, headers: cors });
     }
 
-    const email = phoneEmail(phone);
+    const email = staffPhoneEmail(phone);
+    const { data: linkedLogin } = await admin.from('staff_accounts').select('user_id').eq('owner_id', ownerId).eq('workspace_id', workspaceId).eq('staff_id', staffId).maybeSingle();
+    if (linkedLogin) {
+      // Migrate older staff logins from the owner phone namespace and let an
+      // owner issue a fresh password without ever exposing the stored hash.
+      const { error: updateError } = await admin.auth.admin.updateUserById(linkedLogin.user_id, {
+        email, email_confirm: true, password,
+        user_metadata: { login_method: 'staff_phone_password', phone_number: phone, full_name: name },
+        app_metadata: { account_type: 'staff' },
+      });
+      if (updateError) return Response.json({ error: updateError.message.includes('already been registered') ? 'This phone number already has a staff login.' : 'Could not update the staff login. Check that the phone number is available.' }, { status: 409, headers: cors });
+      const { error: membershipError } = await admin.from('staff_accounts').update({ phone, role, active: true }).eq('user_id', linkedLogin.user_id);
+      if (membershipError) return Response.json({ error: 'Password updated, but the staff access record could not be refreshed.' }, { status: 500, headers: cors });
+      return Response.json({ ok: true, message: 'Staff login updated. Give the staff member their phone number and new password.' }, { headers: cors });
+    }
     const { data: created, error: createError } = await admin.auth.admin.createUser({
       email, password, email_confirm: true,
       user_metadata: { login_method: 'staff_phone_password', phone_number: phone, full_name: name },
