@@ -46,7 +46,7 @@ interface StoreValue {
   receivePurchase: (id: number) => { ok: boolean; error?: string };
   // accounts
   addAccount: (a: Omit<Account, 'id'>) => void;
-  addStaff: (staff: Omit<StaffMember, 'id'>) => void;
+  addStaff: (staff: Omit<StaffMember, 'id'>) => number;
   updateStaff: (id: number, patch: Partial<StaffMember>) => void;
   recordAttendance: (record: Omit<AttendanceRecord, 'id'>) => void;
   addSalaryPayment: (payment: Omit<SalaryPayment, 'id'>) => { ok: boolean; error?: string };
@@ -707,7 +707,9 @@ export function StoreProvider({ children, scope = 'local' }: { children: ReactNo
   }, [data, save]);
 
   const addStaff = useCallback((staff: Omit<StaffMember, 'id'>) => {
-    save({ ...data, staff: [...data.staff, { ...staff, id: nextId(data.staff) }] });
+    const id = nextId(data.staff);
+    save({ ...data, staff: [...data.staff, { ...staff, id }] });
+    return id;
   }, [data, save]);
 
   const updateStaff = useCallback((id: number, patch: Partial<StaffMember>) => {
